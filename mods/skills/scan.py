@@ -1,0 +1,89 @@
+"""Skills a Claude Code session loaded, read from its transcript.
+
+Usage: python3 -I scan.py <claude pid> '<offsets json>'
+Prints {"session", "offsets", "events"}; only lines past each file's offset are read,
+so polling a long transcript stays cheap. A load is the meta message Claude Code adds
+when a skill's SKILL.md is injected ("Base directory for this skill: <dir>"); it covers
+both the Skill tool and a typed /slash command.
+"""
+import glob
+import json
+import os
+import re
+import sys
+
+MARK = "Base directory for this skill: "
+HOME = os.path.expanduser("~")
+
+
+def text_of(content):
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        return "".join(c.get("text", "") for c in content if isinstance(c, dict) and c.get("type") == "text")
+    return ""
+
+
+def scan(path, offset, sub, events):
+    try:
+        size = os.path.getsize(path)
+    except OSError:
+        return offset
+    if offset > size:
+        offset = 0
+    with open(path, "rb") as f:
+        f.seek(offset)
+        data = f.read()
+    end = data.rfind(b"\n")
+    if end < 0:
+        return offset
+    for raw in data[: end + 1].splitlines():
+        if b"Base directory for this skill" not in raw and b'"Skill"' not in raw and b"<command-name>" not in raw:
+            continue
+        try:
+            d = json.loads(raw)
+        except ValueError:
+            continue
+        msg = d.get("message") or {}
+        ts = d.get("timestamp")
+        if d.get("type") == "assistant" and isinstance(msg.get("content"), list):
+            for c in msg["content"]:
+                if isinstance(c, dict) and c.get("type") == "tool_use" and c.get("name") == "Skill":
+                    inp = c.get("input") or {}
+                    events.append({"kind": "call", "id": c.get("id"), "skill": inp.get("skill"), "args": inp.get("args") or "", "ts": ts, "sub": sub})
+        elif d.get("type") == "user":
+            s = text_of(msg.get("content"))
+            if d.get("isMeta") and s.startswith(MARK):
+                folder = s[len(MARK):].split("\n", 1)[0].strip()
+                events.append({"kind": "load", "folder": folder, "skill": os.path.basename(folder), "id": d.get("sourceToolUseID"), "ts": ts, "sub": sub})
+            elif "<command-name>" in s:
+                name = re.search(r"<command-name>/?([^<]*)</command-name>", s)
+                args = re.search(r"<command-args>(.*?)</command-args>", s, re.S)
+                if name:
+                    events.append({"kind": "slash", "skill": name.group(1), "args": (args.group(1).strip() if args else ""), "ts": ts, "sub": sub})
+    return offset + end + 1
+
+
+def main():
+    pid = sys.argv[1]
+    offsets = json.loads(sys.argv[2]) if len(sys.argv) > 2 and sys.argv[2] else {}
+    try:
+        with open(os.path.join(HOME, ".claude", "sessions", f"{pid}.json")) as f:
+            info = json.load(f)
+    except (OSError, ValueError):
+        print(json.dumps({"session": None}))
+        return
+    sid, cwd = info.get("sessionId"), info.get("cwd") or ""
+    projects = os.path.join(HOME, ".claude", "projects")
+    main_path = os.path.join(projects, re.sub(r"[^A-Za-z0-9]", "-", cwd), f"{sid}.jsonl")
+    if not os.path.exists(main_path):
+        found = glob.glob(os.path.join(projects, "*", f"{sid}.jsonl"))
+        main_path = found[0] if found else main_path
+    events, out = [], {}
+    out[main_path] = scan(main_path, offsets.get(main_path, 0), False, events)
+    for p in sorted(glob.glob(os.path.join(main_path[:-6], "subagents", "**", "*.jsonl"), recursive=True)):
+        out[p] = scan(p, offsets.get(p, 0), True, events)
+    print(json.dumps({"session": sid, "name": info.get("name"), "transcript": main_path, "offsets": out, "events": events}))
+
+
+main()
