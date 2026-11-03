@@ -13,6 +13,8 @@ import re
 import sys
 
 MARK = "Base directory for this skill: "
+PATH_TOOLS = {"Bash", "Read"}
+SKILL_PATH = re.compile(r"((?:~|[^\s\"'=:;|&()<>]*)(?:\.agents|\.claude)(?:/plugins/[^\s\"']*?)?/skills/([A-Za-z0-9_.-]+))")
 HOME = os.path.expanduser("~")
 
 
@@ -46,7 +48,7 @@ def text_of(content):
     return ""
 
 
-def scan(path, offset, sub, events):
+def scan(path, offset, sub, events, agent=None):
     try:
         size = os.path.getsize(path)
     except OSError:
@@ -60,7 +62,8 @@ def scan(path, offset, sub, events):
     if end < 0:
         return offset
     for raw in data[: end + 1].splitlines():
-        if b"Base directory for this skill" not in raw and b'"Skill"' not in raw and b"<command-name>" not in raw:
+        if b"Base directory for this skill" not in raw and b'"Skill"' not in raw and b"<command-name>" not in raw \
+                and not (sub and b"skills/" in raw):
             continue
         try:
             d = json.loads(raw)
@@ -73,6 +76,14 @@ def scan(path, offset, sub, events):
                 if isinstance(c, dict) and c.get("type") == "tool_use" and c.get("name") == "Skill":
                     inp = c.get("input") or {}
                     events.append({"kind": "call", "id": c.get("id"), "skill": inp.get("skill"), "args": inp.get("args") or "", "ts": ts, "sub": sub})
+                elif sub and isinstance(c, dict) and c.get("type") == "tool_use" and c.get("name") in PATH_TOOLS:
+                    # Sub-agents rarely call the Skill tool: they run a skill's scripts or read its
+                    # files by path, as the skill that dispatched them says to.
+                    inp = c.get("input") or {}
+                    text = " ".join(str(inp.get(k) or "") for k in ("command", "file_path", "path"))
+                    for folder, name in dict.fromkeys(SKILL_PATH.findall(text)):
+                        events.append({"kind": "path", "skill": name, "folder": folder.replace("~", HOME, 1),
+                                       "tool": c.get("name"), "ts": ts, "sub": sub, "agent": agent})
         elif d.get("type") == "user":
             s = text_of(msg.get("content"))
             if d.get("isMeta") and s.startswith(MARK):
@@ -104,7 +115,12 @@ def main():
     events, out = [], {}
     out[main_path] = scan(main_path, offsets.get(main_path, 0), False, events)
     for p in sorted(glob.glob(os.path.join(main_path[:-6], "subagents", "**", "*.jsonl"), recursive=True)):
-        out[p] = scan(p, offsets.get(p, 0), True, events)
+        try:
+            with open(p[:-6] + ".meta.json") as f:
+                desc = json.load(f).get("description") or True
+        except (OSError, ValueError):
+            desc = True
+        out[p] = scan(p, offsets.get(p, 0), desc, events, os.path.basename(p)[:-6])
     print(json.dumps({"session": sid, "name": info.get("name"), "transcript": main_path, "offsets": out, "events": events}))
 
 

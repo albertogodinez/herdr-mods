@@ -3,7 +3,7 @@ import { v_flex, h_flex } from "gpui-base";
 import { focused, panes, exec, hc, home, appHome, theme } from "herdr";
 
 // The focused terminal, else the focused pane's, else the agent an agent block shows.
-const current = () => { const f = focused(); return f?.terminal ?? (f?.pane ? panes().find(p => p.pane === f.pane)?.terminal : null) ?? f?.agent ?? null; };
+const current = () => { const f = focused(); return f?.shown ?? f?.terminal ?? (f?.pane ? panes().find(p => p.pane === f.pane)?.terminal : null) ?? f?.agent ?? null; };
 
 // Skills the focused Claude Code session has loaded, newest first.
 // Data: focused terminal -> its foreground pid (hc get) -> ~/.claude/sessions/<pid>.json
@@ -21,6 +21,8 @@ function source(folder) {
   if (folder.startsWith(`${home()}/.claude/skills`) || folder.startsWith(`${home()}/.agents/skills`)) return "user";
   return "project";
 }
+
+const HOW = { typed: "typed /command", agent: "agent called", path: "used by path" };
 
 export default class Skills extends View {
   init(_props, cx) {
@@ -70,6 +72,14 @@ export default class Skills extends View {
     const by = new Map();
     for (const e of this.events) {
       if (e.kind === "call") { calls[e.id] = e; continue; }
+      if (e.kind === "path") {
+        // One use per sub-agent and skill, however many of its files that agent touched.
+        const s = by.get(e.skill) ?? { name: e.skill, folder: e.folder, source: source(e.folder), uses: [] };
+        const u = s.uses.find(u => u.agent === e.agent);
+        if (u) { u.n++; u.ts = e.ts > u.ts ? e.ts : u.ts; if (!u.tools.includes(e.tool)) u.tools.push(e.tool); }
+        else s.uses.push({ ts: e.ts, args: "", how: "path", sub: e.sub, agent: e.agent, n: 1, tools: [e.tool] });
+        by.set(e.skill, s); continue;
+      }
       if (e.kind === "slash") { slash = e; continue; }
       const call = e.id ? calls[e.id] : null;
       const typed = !call && slash && slash.skill.split(":").pop() === e.skill ? slash : null;
@@ -79,6 +89,7 @@ export default class Skills extends View {
       s.uses.push({ ts: e.ts, args: call?.args ?? typed?.args ?? "", how: call ? "agent" : "typed", sub: e.sub });
       by.set(name, s);
     }
+    for (const s of by.values()) s.uses.sort((a, b) => Date.parse(a.ts) - Date.parse(b.ts));
     this.skills = [...by.values()].sort((a, b) => Date.parse(b.uses.at(-1).ts) - Date.parse(a.uses.at(-1).ts));
   }
 
@@ -97,8 +108,11 @@ export default class Skills extends View {
         .child(div().w(30).flex_none().text_right().text_size(11).text_color(t.dim).child(ago(last.ts))))
       .when(open, e => e.child(v_flex().pl(28).pr(8).pb(6).gap(4).children([...s.uses].reverse().map((u, i) =>
         v_flex().id(`use-${s.name}-${i}`).gap(1).p(6).rounded(6).bg(t.raised)
-          .child(h_flex().gap(6).text_size(10.5).text_color(t.dim).child(clock(u.ts)).child(u.how === "typed" ? "typed /command" : "agent called").when(u.sub, x => x.child(div().text_color(t.blocked).child("sub-agent"))))
-          .child(div().text_size(11.5).text_color(u.args ? t.foreground : t.dim).child(u.args ? (u.args.length > 400 ? u.args.slice(0, 400) + "…" : u.args) : "no arguments"))))));
+          .child(h_flex().gap(6).text_size(10.5).text_color(t.dim).child(clock(u.ts)).child(HOW[u.how] ?? "agent called").when(u.sub, x => x.child(div().text_color(t.blocked).child("sub-agent"))))
+          .when(typeof u.sub === "string", x => x.child(div().text_size(11).text_color(t.muted).truncate().child(u.sub)))
+          .child(div().text_size(11.5).text_color(u.args || u.how === "path" ? t.foreground : t.dim).child(u.how === "path"
+            ? `${u.tools.map(x => x === "Bash" ? "ran its scripts" : "read its files").join(", ")} · ${u.n} call${u.n > 1 ? "s" : ""}`
+            : u.args ? (u.args.length > 400 ? u.args.slice(0, 400) + "…" : u.args) : "no arguments"))))));
   }
 
   render(cx) {
