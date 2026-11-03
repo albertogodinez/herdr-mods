@@ -75,7 +75,7 @@ def scan(path, offset, sub, events, agent=None):
             for c in msg["content"]:
                 if isinstance(c, dict) and c.get("type") == "tool_use" and c.get("name") == "Skill":
                     inp = c.get("input") or {}
-                    events.append({"kind": "call", "id": c.get("id"), "skill": inp.get("skill"), "args": inp.get("args") or "", "ts": ts, "sub": sub})
+                    events.append({"kind": "call", "id": c.get("id"), "skill": inp.get("skill"), "args": inp.get("args") or "", "ts": ts, "sub": sub, "agent": agent})
                 elif sub and isinstance(c, dict) and c.get("type") == "tool_use" and c.get("name") in PATH_TOOLS:
                     # Sub-agents rarely call the Skill tool: they run a skill's scripts or read its
                     # files by path, as the skill that dispatched them says to.
@@ -88,12 +88,12 @@ def scan(path, offset, sub, events, agent=None):
             s = text_of(msg.get("content"))
             if d.get("isMeta") and s.startswith(MARK):
                 folder = s[len(MARK):].split("\n", 1)[0].strip()
-                events.append({"kind": "load", "folder": folder, "skill": os.path.basename(folder), "id": d.get("sourceToolUseID"), "ts": ts, "sub": sub})
+                events.append({"kind": "load", "folder": folder, "skill": os.path.basename(folder), "id": d.get("sourceToolUseID"), "ts": ts, "sub": sub, "agent": agent})
             elif "<command-name>" in s:
                 name = re.search(r"<command-name>/?([^<]*)</command-name>", s)
                 args = re.search(r"<command-args>(.*?)</command-args>", s, re.S)
                 if name:
-                    events.append({"kind": "slash", "skill": name.group(1), "args": (args.group(1).strip() if args else ""), "ts": ts, "sub": sub})
+                    events.append({"kind": "slash", "skill": name.group(1), "args": (args.group(1).strip() if args else ""), "ts": ts, "sub": sub, "agent": agent})
     return offset + end + 1
 
 
@@ -114,14 +114,36 @@ def main():
         main_path = found[0] if found else main_path
     events, out = [], {}
     out[main_path] = scan(main_path, offsets.get(main_path, 0), False, events)
+    agents = {}
     for p in sorted(glob.glob(os.path.join(main_path[:-6], "subagents", "**", "*.jsonl"), recursive=True)):
+        aid = os.path.basename(p)[:-6]
         try:
             with open(p[:-6] + ".meta.json") as f:
-                desc = json.load(f).get("description") or True
+                meta = json.load(f)
         except (OSError, ValueError):
-            desc = True
-        out[p] = scan(p, offsets.get(p, 0), desc, events, os.path.basename(p)[:-6])
-    print(json.dumps({"session": sid, "name": info.get("name"), "transcript": main_path, "offsets": out, "events": events}))
+            meta = {}
+        desc = meta.get("description") or True
+        out[p] = scan(p, offsets.get(p, 0), desc, events, aid)
+        # What the agent switcher needs to name the agent it shows: type and start time.
+        agents[aid] = {"type": meta.get("agentType"), "description": meta.get("description"),
+                       "finished": bool(meta.get("finished")), "start": first_ts(p)}
+    print(json.dumps({"session": sid, "name": info.get("name"), "transcript": main_path, "offsets": out, "events": events, "agents": agents}))
 
 
-main()
+def first_ts(path):
+    try:
+        with open(path, "rb") as f:
+            for _ in range(20):
+                raw = f.readline()
+                if not raw:
+                    break
+                m = re.search(rb'"timestamp":"([^"]+)"', raw)
+                if m:
+                    return m.group(1).decode()
+    except OSError:
+        pass
+    return None
+
+
+if __name__ == "__main__":
+    main()

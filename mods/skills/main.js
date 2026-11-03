@@ -22,6 +22,39 @@ function source(folder) {
   return "project";
 }
 
+// Claude Code's agent switcher at the bottom of its screen: "⏺ main", then one row per
+// sub-agent, "◯ general-purpose  <activity>   54m 39s · ↓ 140.3k tokens". ⏺ marks the
+// agent whose view is open. Returns {type, secs} when that is a sub-agent, else null.
+function shownAgent(screen) {
+  const lines = screen.split("\n"); let i = lines.length - 1;
+  while (i >= 0 && !lines[i].trim()) i--;
+  const rows = [];
+  for (; i >= 0; i--) {
+    const r = lines[i].match(/^\s*(?:❯\s+)?([⏺◯●○])\s+(\S+)(.*)$/);
+    if (!r) break;
+    rows.unshift(r);
+    if (r[2] === "main" && !r[3].trim()) break;
+  }
+  if (rows.length < 2 || rows[0][2] !== "main") return null;
+  const on = rows.slice(1).find(r => r[1] === "⏺" || r[1] === "●");
+  if (!on) return null;
+  const e = on[3].match(/(?:(\d+)h\s*)?(?:(\d+)m\s*)?(\d+)s\s*·/);
+  return { type: on[2], secs: e ? (+(e[1] ?? 0)) * 3600 + (+(e[2] ?? 0)) * 60 + +e[3] : null };
+}
+
+// The sub-agent transcript the switcher row names: same type, started elapsed-time ago.
+function matchAgent(view, agents) {
+  if (!view) return null;
+  const now = Date.now();
+  let best = null, gap = Infinity;
+  for (const [id, a] of Object.entries(agents ?? {})) {
+    if (a.type !== view.type || !a.start) continue;
+    const g = view.secs == null ? now - Date.parse(a.start) : Math.abs(now - view.secs * 1000 - Date.parse(a.start));
+    if (g < gap) { gap = g; best = id; }
+  }
+  return view.secs == null || gap < 120000 ? best : null;
+}
+
 const HOW = { typed: "typed /command", agent: "agent called", path: "used by path" };
 
 export default class Skills extends View {
@@ -31,7 +64,7 @@ export default class Skills extends View {
     cx.timer.every(4000, (cx) => this.refresh(cx));
   }
 
-  reset() { this.session = null; this.name = null; this.offsets = {}; this.events = []; this.skills = []; this.note = null; }
+  reset() { this.view = null; this.agents = {}; this.session = null; this.name = null; this.offsets = {}; this.events = []; this.skills = []; this.note = null; }
 
   refresh(cx) {
     // Clicking this panel doesn't move terminal focus, but keep the last one if it goes null.
@@ -60,8 +93,11 @@ export default class Skills extends View {
         if (out.session && this.session && out.session !== this.session) { const pid = this.pid; this.reset(); this.pid = pid; out = await scan({}); }
         if (t !== this.terminal || fg.pid !== this.pid) return;
         if (!out.session) { this.note = "Session file not found yet"; return; }
-        this.session = out.session; this.name = out.name; this.offsets = out.offsets; this.note = null;
-        if (out.events.length) { this.events.push(...out.events); this.build(); }
+        this.session = out.session; this.name = out.name; this.offsets = out.offsets; this.note = null; this.agents = out.agents ?? {};
+        const screen = await hc(["read", t]);
+        if (t !== this.terminal) return;
+        const view = screen.code === 0 ? matchAgent(shownAgent(screen.stdout), this.agents) : null;
+        if (out.events.length || view !== this.view) { this.events.push(...out.events); this.view = view; this.build(); }
       } catch (e) { this.note = `Can't read skills: ${e}`; }
       finally { this.loading = false; cx.notify(); }
     });
@@ -70,7 +106,7 @@ export default class Skills extends View {
   build() {
     const calls = {}; let slash = null;
     const by = new Map();
-    for (const e of this.events) {
+    for (const e of this.view ? this.events.filter(e => e.agent === this.view) : this.events) {
       if (e.kind === "call") { calls[e.id] = e; continue; }
       if (e.kind === "path") {
         // One use per sub-agent and skill, however many of its files that agent touched.
@@ -124,9 +160,12 @@ export default class Skills extends View {
         .child(div().px(5).py(1).rounded(4).border_1().border_color(t.border).text_size(10).text_color(t.muted).child(`${this.skills.length} skills`))
         .child(div().flex_1())
         .when(uses > 0, e => e.child(div().text_size(11).text_color(t.dim).child(`${uses} loads`))))
+      .when(Boolean(this.view), e => e.child(h_flex().px(14).py(6).gap(6).flex_none().text_size(11).border_b(1).border_color(t.border)
+        .child(div().text_color(t.accent).flex_none().child("Sub-agent"))
+        .child(div().text_color(t.muted).truncate().child(this.agents[this.view]?.description ?? this.view))))
       .when(Boolean(this.name), e => e.child(div().px(14).py(6).flex_none().text_size(11).text_color(t.dim).truncate().border_b(1).border_color(t.border).child(`session ${this.name} · ${this.session?.slice(0, 8)}`)))
       .child(v_flex().id("skills-list").flex_1().min_h(0).overflow_y_scrollbar().p(6).gap(1)
         .children(this.skills.map(s => this.row(s, t)))
-        .when(!this.skills.length, e => e.child(div().p(8).text_color(t.dim).child(this.note ?? (this.loading || !this.session ? "Loading…" : "No skills used in this session yet")))));
+        .when(!this.skills.length, e => e.child(div().p(8).text_color(t.dim).child(this.note ?? (this.loading || !this.session ? "Loading…" : this.view ? "This sub-agent hasn't used a skill yet" : "No skills used in this session yet")))));
   }
 }
