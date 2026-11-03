@@ -1,6 +1,6 @@
 import { View, div, svg } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
-import { focused, panes, exec, hc, home, appHome, theme } from "herdr";
+import { focused, panes, exec, hc, home, appHome, theme, watchFolder } from "herdr";
 
 // The focused terminal, else the focused pane's, else the agent an agent block shows.
 const current = () => { const f = focused(); return f?.shown ?? f?.terminal ?? (f?.pane ? panes().find(p => p.pane === f.pane)?.terminal : null) ?? f?.agent ?? null; };
@@ -26,21 +26,50 @@ const HOW = { typed: "typed /command", agent: "agent called", path: "used by pat
 
 export default class Skills extends View {
   init(_props, cx) {
-    this.reset(); this.terminal = null; this.open = new Set();
+    this.reset(); this.terminal = null; this.open = new Set(); this.watching = new Set();
     this.refresh(cx);
-    cx.timer.every(4000, (cx) => this.refresh(cx));
+    // No polling: a rescan runs when Claude Code writes this session's transcript or session
+    // file (watchFolder), or when focus or the pane's program changes (render). The slow
+    // tick only redraws the "2m ago" labels; it runs nothing.
+    cx.timer.every(60000, (cx) => cx.notify());
   }
 
-  reset() { this.session = null; this.name = null; this.offsets = {}; this.events = []; this.skills = []; this.note = null; }
+  async close() { this.done = true; }
+
+  // One loop per folder for the panel's life; each batch is checked against the session shown now.
+  watch(dir, cx) {
+    if (!dir || this.watching.has(dir)) return;
+    this.watching.add(dir);
+    cx.spawn(async (cx) => {
+      try {
+        while (!this.done) {
+          const changed = await watchFolder(dir);
+          if (this.done) return;
+          if (changed.some(p => p === dir || this.wants(p))) this.refresh(cx);
+        }
+      } catch { /* folder gone: the next refresh watches again */ } finally { this.watching.delete(dir); }
+    });
+  }
+
+  wants(p) {
+    const tr = this.transcript;
+    if (tr && (p === tr || p.startsWith(tr.slice(0, -6) + "/"))) return true; // transcript or its subagents/
+    if (this.info) return p === this.info;                                    // /clear, resume
+    return Boolean(this.pid) && p.includes("/.claude/sessions/");            // session file not written yet
+  }
+
+  program() { return panes().find(p => p.terminal === this.terminal)?.program?.key ?? null; }
+
+  reset() { this.transcript = null; this.info = null; this.session = null; this.name = null; this.offsets = {}; this.events = []; this.skills = []; this.note = null; }
 
   refresh(cx) {
     // Clicking this panel doesn't move terminal focus, but keep the last one if it goes null.
     const t = current() ?? this.terminal;
     if (t !== this.terminal) { this.terminal = t; this.pid = null; this.reset(); }
     if (!t) { this.note = "Focus a Claude Code pane"; cx.notify(); return; }
-    if (this.loading) return;
+    if (this.loading) { this.again = true; return; }
     if (t.includes("/")) { this.note = "Remote terminals aren't tracked yet"; cx.notify(); return; }
-    this.loading = true;
+    this.loading = true; this.again = false; this.prog = this.program();
     cx.spawn(async (cx) => {
       try {
         const g = await hc(["get", t, "--json"]);
@@ -61,9 +90,15 @@ export default class Skills extends View {
         if (t !== this.terminal || fg.pid !== this.pid) return;
         if (!out.session) { this.note = "Session file not found yet"; return; }
         this.session = out.session; this.name = out.name; this.offsets = out.offsets; this.note = null;
+        this.transcript = out.transcript; this.info = out.info;
+        this.watch(out.transcript?.replace(/\/[^/]+$/, ""), cx);
         if (out.events.length) { this.events.push(...out.events); this.build(); }
       } catch (e) { this.note = `Can't read skills: ${e}`; }
-      finally { this.loading = false; cx.notify(); }
+      finally {
+        this.loading = false; cx.notify();
+        if (this.pid) this.watch(`${home()}/.claude/sessions`, cx);
+        if (this.again && !this.done) this.refresh(cx);
+      }
     });
   }
 
@@ -116,7 +151,8 @@ export default class Skills extends View {
   }
 
   render(cx) {
-    if ((current() ?? this.terminal) !== this.terminal) this.refresh(cx);
+    // Focus moved, or the pane started or quit Claude Code.
+    if ((current() ?? this.terminal) !== this.terminal || (this.terminal && this.program() !== this.prog)) this.refresh(cx);
     const t = theme(), uses = this.skills.reduce((n, s) => n + s.uses.length, 0);
     return v_flex().id("skills").size_full().min_h(0).rounded(10).overflow_hidden().bg(t.background).border_1().border_color(t.border).text_color(t.foreground).text_size(13)
       .child(h_flex().h(42).flex_none().px(14).gap(8).items_center().border_b(1).border_color(t.border)

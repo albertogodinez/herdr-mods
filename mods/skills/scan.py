@@ -101,7 +101,8 @@ def main():
     pid = sys.argv[1]
     offsets = json.loads(sys.argv[2]) if len(sys.argv) > 2 and sys.argv[2] else {}
     try:
-        with open(session_file(pid) or "") as f:
+        info_path = session_file(pid) or ""
+        with open(info_path) as f:
             info = json.load(f)
     except (OSError, ValueError):
         print(json.dumps({"session": None}))
@@ -121,7 +122,7 @@ def main():
         except (OSError, ValueError):
             desc = True
         out[p] = scan(p, offsets.get(p, 0), desc, events, os.path.basename(p)[:-6])
-    print(json.dumps({"session": sid, "name": info.get("name"), "transcript": main_path, "offsets": out, "events": events}))
+    print(json.dumps({"session": sid, "name": info.get("name"), "transcript": main_path, "offsets": out, "events": events, "info": info_path}))
 
 
 main()
