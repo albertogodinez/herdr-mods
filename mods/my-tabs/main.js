@@ -1,6 +1,6 @@
 import { View, div, svg, image } from "gpui-kit";
 import { h_flex } from "gpui-base";
-import { spaces, panes, run, openOverlay, theme, window, shared, setShared, layout, settings } from "herdr";
+import { spaces, panes, run, openOverlay, theme, window, shared, setShared, layout, settings, nextCommand } from "herdr";
 
 function find(node, id) {
   if (node?.id === id) return node;
@@ -16,8 +16,15 @@ function find(node, id) {
 const menuAt = (e) => e.bounds ? { x: e.position.x + 2, y: e.bounds.y + e.bounds.height + 6 } : "pointer";
 
 export default class Tabs extends View {
-  init() {
+  init(_props, cx) {
     this.pressed = null;
+    // ctrl-tab / ctrl-shift-tab (keys.json) arrive here: open the switcher, or step it if open.
+    cx.spawn(async (cx) => {
+      for (;;) {
+        const c = await nextCommand();
+        if (c === "switch-next" || c === "switch-prev") this.switcher(c === "switch-next" ? 1 : -1);
+      }
+    });
     this.panels = JSON.parse(localStorage.getItem("panels") ?? "{}");
   }
 
@@ -47,6 +54,32 @@ export default class Tabs extends View {
     if (this.panels[space.id] === now) return;
     this.panels[space.id] = now;
     localStorage.setItem("panels", JSON.stringify(this.panels));
+  }
+
+  switcher(dir) {
+    if (shared("tab-switcher.open")) {
+      const n = (shared("tab-switcher.step")?.n ?? 0) + 1;
+      setShared("tab-switcher.step", { n, dir });
+      return;
+    }
+    const count = Math.min(5, spaces().reduce((n, s) => n + (s.tabs?.length ?? 0), 0));
+    if (count < 2) return;
+    // Centred in the window. viewport_size() is only readable while rendering, so render
+    // records it (gpui's window, not herdr's window() imported above).
+    const width = count * 234 - 10 + 24, height = 250, vp = this.viewport;
+    // `at` is in window pixels; the popup's width/height are scaled by the app zoom.
+    const z = settings().zoom || 1;
+    const at = vp ? { x: Math.max(0, (vp.width - width * z) / 2), y: Math.max(0, (vp.height - height * z) / 2) } : "pointer";
+    openOverlay({ mod: "tab-switcher", kind: "popup", frame: "none", at, width, height, props: { dir } });
+  }
+
+  // Recently used tabs across spaces, newest first, for the switcher.
+  trackRecent() {
+    const cur = spaces().find(s => s.active)?.tabs?.find(c => c.active)?.id;
+    if (!cur || cur === this.lastTab) return;
+    this.lastTab = cur;
+    const mru = shared("tab-switcher.mru") ?? [];
+    if (mru[0] !== cur) setShared("tab-switcher.mru", [cur, ...mru.filter(id => id !== cur)].slice(0, 40));
   }
 
   dragMove(e, cx) {
@@ -87,6 +120,8 @@ export default class Tabs extends View {
   }
 
   render() {
+    this.trackRecent();
+    try { this.viewport = globalThis.window.viewport_size(); } catch {}
     const t = theme();
     const space = spaces().find(p => p.active);
     const shown = space?.tabs ?? [];

@@ -1,5 +1,7 @@
 {
   "global": {
+    "ctrl-tab": "my-tabs.switch-next",
+    "ctrl-shift-tab": "my-tabs.switch-prev",
     "cmd-shift-b": "layout.toggle:panel"
   }
 }
