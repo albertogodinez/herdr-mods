@@ -17,7 +17,6 @@ const menuAt = (e) => e.bounds ? { x: e.position.x + 2, y: e.bounds.y + e.bounds
 
 export default class Tabs extends View {
   init(_props, cx) {
-    this.pressed = null;
     // ctrl-tab / ctrl-shift-tab (keys.json) arrive here: open the switcher, or step it if open.
     cx.spawn(async (cx) => {
       for (;;) {
@@ -89,14 +88,14 @@ export default class Tabs extends View {
       if (Math.abs(e.position.x - d.startX) < 4) return;
       d.active = true;
     }
-    const order = this.panelOrder, widths = this.widths, w = widths[d.id], others = order.filter(id => id !== d.id);
-    const total = order.reduce((n, id) => n + widths[id], 0) + 3 * (order.length - 1);
+    const { order, widths, gap } = this.groups[d.group], w = widths[d.id], others = order.filter(id => id !== d.id);
+    const total = order.reduce((n, id) => n + widths[id], 0) + gap * (order.length - 1);
     d.ghostLeft = Math.max(0, Math.min(total - w, d.startLeft + (e.position.x - d.startX) / d.scale));
     // The slot whose center is nearest the ghost's center.
     const center = d.ghostLeft + w / 2;
     let best = 0, bestDist = Infinity;
     for (let k = 0; k <= others.length; k++) {
-      const left = others.slice(0, k).reduce((n, id) => n + widths[id] + 3, 0);
+      const left = others.slice(0, k).reduce((n, id) => n + widths[id] + gap, 0);
       const dist = Math.abs(left + w / 2 - center);
       if (dist < bestDist) { bestDist = dist; best = k; }
     }
@@ -110,7 +109,10 @@ export default class Tabs extends View {
     const d = this.drag;
     if (!d) return;
     this.drag = null;
-    if (d.active) setShared("my-tabs.panelOrder", d.preview);
+    if (d.group === "tab") {
+      if (d.active) { const index = d.preview.indexOf(d.id) + 1; if (index !== this.groups.tab.order.indexOf(d.id) + 1) run("tab.move", { id: d.id, index }); }
+      else if (released) run("tab.select", { id: d.id });
+    } else if (d.active) setShared("my-tabs.panelOrder", d.preview);
     else if (released) {
       const root = layout(), panel = find(root, "panel"), body = find(root, "panel-body");
       if (panel && !panel.hidden && body?.active === d.id) run("layout.hide", { id: "panel" });
@@ -126,26 +128,58 @@ export default class Tabs extends View {
     const space = spaces().find(p => p.active);
     const shown = space?.tabs ?? [];
     const stop = (_e, cx) => cx.stop_propagation();
+    // Drag to reorder, for the tab pills and the panel buttons alike: once every item has a
+    // measured width, items are absolutely placed so they can slide (transition on left);
+    // while dragging, the item's own slot is a dashed box and a ghost follows the pointer.
+    const GAP = 3, SLIDE = { duration: 140, easing: "ease-out" };
+    this.groups ??= {};
+    const drag = this.drag?.active ? this.drag : null;
+    const lefts = (ids, widths, gap) => { const out = {}; let x = 0; for (const id of ids) { out[id] = x; x += widths[id] + gap; } return out; };
+    const sortable = (group, order, h, face) => {
+      const widths = (this.widthsBy ??= {})[group] ??= {};
+      this.groups[group] = { order, widths, gap: GAP };
+      const measured = order.length > 0 && order.every(id => widths[id] > 0);
+      const total = order.reduce((n, id) => n + (widths[id] ?? 0), 0) + GAP * Math.max(0, order.length - 1);
+      const mine = drag?.group === group ? drag : null;
+      const at = lefts(mine ? mine.preview : order, widths, GAP);
+      const item = (id) => {
+        const slot = mine?.id === id;
+        let el = slot ? h_flex().h(h).rounded(7).border(1).border_dashed().border_color(t.accent).bg(t.hover).w(widths[id]) : face(id, false);
+        el = el.id(`${group}-${id}`).flex_none()
+          .on_size_change((size, cx) => { const w = size.width / (settings().zoom || 1); if (!slot && Math.abs((widths[id] ?? 0) - w) > 0.5) { widths[id] = w; cx.notify(); } })
+          .on_mouse_down("left", (e, cx) => {
+            cx.stop_propagation();
+            if (group === "tab" && e.click_count === 2) { this.drag = null; run("tab.rename", { id }); return; }
+            // Pointer units can differ from layout units (app zoom): the pressed item's event
+            // width against its measured width gives the ratio.
+            const scale = e.bounds?.width && widths[id] ? e.bounds.width / widths[id] : 1;
+            this.drag = { group, id, scale, startX: e.position.x, startLeft: lefts(order, widths, GAP)[id] ?? 0, active: false };
+          });
+        return measured ? el.absolute().top(0).left(at[id]).transition("left", SLIDE) : el;
+      };
+      const ghost = mine && measured
+        ? face(mine.id, true).id(`${group}-ghost`).absolute().top(0).left(mine.ghostLeft).opacity(0.85).bg(t.raised).border_color(t.input).shadow_md().cursor_grabbing()
+        : null;
+      return h_flex().id(`${group}-group`).flex_none().items_center().gap(GAP)
+        .when(measured, el => el.relative().w(total).h(h))
+        .children(order.map(item))
+        .when(Boolean(ghost), el => el.child(ghost));
+    };
     const button = (id, label, action) => div().id(id).size(26).flex_none().flex().items_center().justify_center().rounded(6).text_color(t.dim).hover(s => s.bg(t.hover).text_color(t.foreground))
       .on_mouse_down("left", stop).on_click(action).child(label);
-    const item = (c, i) => {
+    const tabFace = (id, ghost) => {
+      const c = shown.find(x => x.id === id);
       const program = panes().find(p => p.tab === c.id && p.program?.agent)?.program ?? panes().find(p => p.tab === c.id)?.program;
       const name = /^tb\d+$/.test(c.name) ? program?.name ?? "Terminal" : c.name;
-      return h_flex().id(`tab-${c.id}`).h(29).px(10).gap(7).rounded(7).items_center().flex_none().text_size(12.8)
+      return h_flex().h(29).px(10).gap(7).rounded(7).items_center().flex_none().text_size(12.8)
         .border(1).border_color(c.active ? t.border : t.chrome).bg(c.active ? t.raised : t.chrome).text_color(c.active ? t.foreground : t.muted)
-        .hover(s => s.bg(t.hover))
-        .on_mouse_down("left", (e, cx) => { cx.stop_propagation(); this.pressed = i; if (e.click_count === 2) run("tab.rename", { id: c.id }); })
-        .on_mouse_up("left", () => {
-          const from = this.pressed; this.pressed = null;
-          if (from !== null && from !== i) run("tab.move", { id: shown[from].id, index: space.tabs.findIndex(x => x.id === c.id) + 1 });
-          else run("tab.select", { id: c.id });
-        })
+        .when(!ghost, el => el.hover(s => s.bg(t.hover)))
         .on_mouse_down("right", (_e, cx) => { cx.stop_propagation(); openOverlay({ mod: "menu", kind: "popup", width: 200, props: { tab: "tab", target: { id: c.id, space: space.id } } }); })
         .when(Boolean(program?.icon), el => el.child(program.tint ? svg(program.icon).size(14).text_color(t.muted) : image(program.icon).size(14)))
         .child(div().max_w(170).truncate().child(c.zoomed ? `${name} Z` : name))
         .when(c.status === "working", el => el.child(svg("mods/workspace-chrome/spinner.svg").size(12).flex_none().text_color(t.working).spin(900)))
         .when(c.status === "blocked" || c.status === "done", el => el.child(div().size(6).rounded(3).bg(t[c.status])))
-        .when(c.active, el => el.child(div().id(`close-${c.id}`).text_color(t.dim).on_mouse_down("left", stop).on_click((_e, cx) => { cx.stop_propagation(); run("tab.close", { id: c.id }); }).child(svg("mods/pane/close.svg").size(12))));
+        .when(c.active && !ghost, el => el.child(div().id(`close-${c.id}`).text_color(t.dim).on_mouse_down("left", stop).on_click((_e, cx) => { cx.stop_propagation(); run("tab.close", { id: c.id }); }).child(svg("mods/pane/close.svg").size(12))));
     };
     const root = layout(), sidebar = find(root, "sidebar"), w = window();
     // Old saved rails and a dragged-narrow sidebar can be smaller than the window buttons.
@@ -159,55 +193,24 @@ export default class Tabs extends View {
     // Panel buttons. Click toggles a panel. Drag one (Firefox toolbar style): it follows the
     // pointer as a ghost, a dashed slot shows where it lands, and the others slide aside.
     const PANELS = { files: ["Files", "mods/files/file.svg"], skills: ["Skills", "mods/skills/skills.svg"], changes: ["Changes", "mods/changes/changes.svg"] };
-    const GAP = 3, SLIDE = { duration: 140, easing: "ease-out" };
     const saved = (shared("my-tabs.panelOrder") ?? []).filter(id => id in PANELS);
     const order = [...new Set([...saved, ...Object.keys(PANELS)])].filter(id => enabled.includes(id));
-    this.panelOrder = order;
-    const widths = this.widths ??= {};
-    const measured = order.every(id => widths[id] > 0);
-    const lefts = (ids) => { const out = {}; let x = 0; for (const id of ids) { out[id] = x; x += widths[id] + GAP; } return out; };
-    const total = order.reduce((n, id) => n + (widths[id] ?? 0), 0) + GAP * Math.max(0, order.length - 1);
-    const drag = this.drag?.active ? this.drag : null;
-    const shownOrder = drag ? drag.preview : order;
-    const at = lefts(shownOrder);
-    const face = (id, on) => {
-      const [label, icon] = PANELS[id];
+    const panelFace = (id, ghost) => {
+      const [label, icon] = PANELS[id], on = !ghost && panel && !panel.hidden && body?.active === id;
       return h_flex().h(26).px(8).gap(5).flex_none().items_center().rounded(6).text_size(12)
         .bg(on ? t.selected : t.chrome).text_color(on ? t.foreground : t.muted).border(1).border_color(on ? t.selected : t.chrome)
+        .when(!ghost, el => el.hover(s => s.bg(t.hover))
+          .on_mouse_down("right", (e, cx) => { cx.stop_propagation(); openOverlay({ mod: "panel-menu", kind: "popup", width: 200, at: menuAt(e), props: { panel: id } }); }))
         .child(svg(icon).size(14)).child(label);
     };
-    const panelButton = (id) => {
-      const on = panel && !panel.hidden && body?.active === id;
-      const slot = drag?.id === id;
-      let el = slot
-        ? h_flex().h(26).rounded(6).border(1).border_dashed().border_color(t.accent).bg(t.hover).w(widths[id])
-        : face(id, on).hover(s => s.bg(t.hover));
-      el = el.id(`panel-${id}`).flex_none()
-        .on_size_change((size, cx) => { const w = size.width / (settings().zoom || 1); if (!slot && Math.abs((widths[id] ?? 0) - w) > 0.5) { widths[id] = w; cx.notify(); } })
-        .on_mouse_down("right", (e, cx) => { cx.stop_propagation(); openOverlay({ mod: "panel-menu", kind: "popup", width: 200, at: menuAt(e), props: { panel: id } }); })
-        .on_mouse_down("left", (e, cx) => {
-          cx.stop_propagation();
-          // Pointer units can differ from layout units (app zoom): the pressed button's event
-          // width against its measured width gives the ratio.
-          const scale = e.bounds?.width && widths[id] ? e.bounds.width / widths[id] : 1;
-          this.drag = { id, scale, startX: e.position.x, startLeft: lefts(this.panelOrder)[id] ?? 0, active: false };
-        });
-      return measured ? el.absolute().top(0).left(at[id]).transition("left", SLIDE) : el;
-    };
-    const ghost = drag && measured
-      ? face(drag.id, false).id("panel-ghost").absolute().top(0).left(drag.ghostLeft).opacity(0.85).bg(t.raised).border_color(t.input).shadow_md().cursor_grabbing()
-      : null;
-    const panelGroup = h_flex().id("panel-group").flex_none().items_center().gap(GAP)
-      .when(measured, el => el.relative().w(total).h(26))
-      .children(order.map(panelButton))
-      .when(Boolean(ghost), el => el.child(ghost));
+    const panelGroup = sortable("panel", order, 26, panelFace);
     return h_flex().size_full().min_w(0).px(10).pl(lightsPadding).gap(3).items_center().bg(t.chrome).border_b(1).border_color(t.border)
       .on_mouse_down("right", (e) => { openOverlay({ mod: "panel-menu", kind: "popup", width: 200, at: menuAt(e), props: {} }); })
       .on_mouse_move((e, cx) => this.dragMove(e, cx))
-      .on_mouse_up("left", (_e, cx) => { this.pressed = null; this.dragEnd(true, cx); })
+      .on_mouse_up("left", (_e, cx) => this.dragEnd(true, cx))
       .on_hover((hovered, cx) => { if (!hovered) this.dragEnd(false, cx); })
       .on_scroll_wheel(e => { if (Math.abs(e.delta.y) >= 1) run(e.delta.y > 0 ? "tab.prev" : "tab.next"); })
-      .child(h_flex().id("tab-scroll").flex_1().min_w(0).h_full().items_center().gap(3).overflow_x_scrollbar().children(shown.map(item)))
+      .child(h_flex().id("tab-scroll").flex_1().min_w(0).h_full().items_center().gap(3).overflow_x_scrollbar().child(sortable("tab", shown.map(c => c.id), 29, tabFace)))
       .child(button("tab-new", "+", () => openOverlay({ mod: "new-menu", kind: "popup", width: 250, height: 512 })))
       .child(panelGroup)
       .when(w?.buttons, el => el.child(button("minimize", w.platform === "windows" ? svg("mods/my-tabs/win-min.svg").size(16) : "−", () => run("window.minimize")))
