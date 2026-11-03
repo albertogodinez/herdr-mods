@@ -94,7 +94,7 @@ export default class TabSwitcher extends View {
     const d = JSON.parse(g.stdout);
     info.msg = d.status?.msg || null;
     const fg = d.foreground;
-    if (!fg || !/(^|\/)claude$/.test(fg.argv?.[0] ?? "")) return;
+    if (!fg || !(fg.argv ?? []).some(a => /(^|\/)claude$/.test(a))) return;
     const r = await exec("python3", ["-I", `${appHome()}/mods/tab-switcher/lasttool.py`, String(fg.pid), String(TRAIL)]).catch(() => null);
     if (r?.code !== 0) return;
     const out = JSON.parse(r.stdout || "{}");

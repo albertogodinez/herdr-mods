@@ -16,6 +16,28 @@ MARK = "Base directory for this skill: "
 HOME = os.path.expanduser("~")
 
 
+def session_file(pid):
+    """~/.claude/sessions/<pid>.json for pid, or for a descendant when claude runs under a
+    wrapper (varlock run -- claude, npx, a shell script): the wrapper is the foreground process."""
+    import subprocess
+    todo, seen = [str(pid)], set()
+    while todo:
+        p = todo.pop(0)
+        if p in seen:
+            continue
+        seen.add(p)
+        path = os.path.join(os.path.expanduser("~"), ".claude", "sessions", f"{p}.json")
+        if os.path.exists(path):
+            return path
+        if len(seen) > 40:
+            break
+        try:
+            todo += subprocess.run(["pgrep", "-P", p], capture_output=True, text=True, timeout=3).stdout.split()
+        except Exception:
+            pass
+    return None
+
+
 def text_of(content):
     if isinstance(content, str):
         return content
@@ -68,7 +90,7 @@ def main():
     pid = sys.argv[1]
     offsets = json.loads(sys.argv[2]) if len(sys.argv) > 2 and sys.argv[2] else {}
     try:
-        with open(os.path.join(HOME, ".claude", "sessions", f"{pid}.json")) as f:
+        with open(session_file(pid) or "") as f:
             info = json.load(f)
     except (OSError, ValueError):
         print(json.dumps({"session": None}))

@@ -45,7 +45,7 @@ export default class Skills extends View {
         const fg = g.code === 0 ? JSON.parse(g.stdout).foreground : null;
         if (t !== this.terminal) return;
         if (g.code !== 0) throw new Error(g.stderr.trim() || `hc get ${t} failed`);
-        const isClaude = fg && /(^|\/)claude$/.test(fg.argv?.[0] ?? "");
+        const isClaude = fg && (fg.argv ?? []).some(a => /(^|\/)claude$/.test(a));
         if (!isClaude) { if (this.pid) this.reset(); this.pid = null; this.note = "No Claude Code session in this pane"; return; }
         if (fg.pid !== this.pid) { this.reset(); this.pid = fg.pid; }
         const scan = async (offsets) => {

@@ -8,6 +8,28 @@ Reads back from the end only as far as it needs (256 KB, growing to at most 8 MB
 import json, os, re, sys
 
 HOME = os.path.expanduser("~")
+
+
+def session_file(pid):
+    """~/.claude/sessions/<pid>.json for pid, or for a descendant when claude runs under a
+    wrapper (varlock run -- claude, npx, a shell script): the wrapper is the foreground process."""
+    import subprocess
+    todo, seen = [str(pid)], set()
+    while todo:
+        p = todo.pop(0)
+        if p in seen:
+            continue
+        seen.add(p)
+        path = os.path.join(os.path.expanduser("~"), ".claude", "sessions", f"{p}.json")
+        if os.path.exists(path):
+            return path
+        if len(seen) > 40:
+            break
+        try:
+            todo += subprocess.run(["pgrep", "-P", p], capture_output=True, text=True, timeout=3).stdout.split()
+        except Exception:
+            pass
+    return None
 VERB = {"Bash": "Ran", "Read": "Read", "Edit": "Edited", "Write": "Wrote", "Grep": "Searched", "Glob": "Listed",
         "Skill": "Loaded skill", "Agent": "Started agent", "WebSearch": "Searched the web", "WebFetch": "Fetched",
         "ToolSearch": "Loaded tools", "TodoWrite": "Updated todos", "AskUserQuestion": "Asked you"}
@@ -27,7 +49,7 @@ def detail(inp):
 
 def main():
     try:
-        info = json.load(open(f"{HOME}/.claude/sessions/{sys.argv[1]}.json"))
+        info = json.load(open(session_file(sys.argv[1]) or ""))
         path = f"{HOME}/.claude/projects/{re.sub(r'[^A-Za-z0-9]', '-', info.get('cwd', ''))}/{info['sessionId']}.jsonl"
         size = os.path.getsize(path)
     except Exception:
