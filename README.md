@@ -1,7 +1,7 @@
 # herdr-mods
 
 My Herdr layout, mods and keys, in the folder shape herdr.dev uses for a shared layout.
-`RECIPE.md` describes what's here; `preview.png` is the screenshot.
+`RECIPE.md` describes what's here.
 
 ## Auto-sync
 

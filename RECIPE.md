@@ -2,8 +2,6 @@
 
 Herdr's main layout with a third right-hand panel, **Skills**, next to Files and Changes: it lists the Claude Code skills the focused pane's session has loaded, newest first, with how often, when, and the arguments each use was given. The tab bar's panel buttons can be dragged into any order (a ghost follows the pointer, a dashed slot shows where it lands, the others slide aside), removed and restored from a right-click menu, `cmd-shift-b` shows or hides the right panel, and Ctrl+Tab opens an Arc-style switcher over the five most recently used tabs across every space, with each tab's title, place and last screen lines.
 
-![Skills Panel](preview.png)
-
 ## What you see
 
 - **Tab bar, right end:** after the `+` button, the panel buttons `Files`, `Skills`, `Changes` (default order), each 26px tall, 8px side padding, 5px icon gap, 6px radius, 12px text, 14px icon, 3px apart. The open panel's button has the `selected` background and `foreground` text; the others `chrome` and `muted`.
