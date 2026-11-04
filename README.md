@@ -11,7 +11,7 @@ My Herdr layout, mods and keys, in the folder shape herdr.dev uses for a shared 
 - `layouts/`: every layout except `main`, `terminals` and `win98`
 - `keys.json`: only the bindings that differ from `scripts/keys.default.json`
 
-A mod or layout deleted in Herdr is deleted here too. It never commits or pushes.
+A mod or layout deleted in Herdr is deleted here too. The agent also commits what it synced (`--commit`), once those files have gone 2 minutes without a change, so one editing session becomes one commit ("Auto-sync: skills, my-tabs"). It stages only `mods/`, `layouts/` and `keys.json`, and never pushes.
 
 A launchd agent (`dev.herdr-mods.sync`) runs it when `mods/`, `layouts/` or `keys.json` change and every 30 s (launchd doesn't see edits nested inside a mod folder, so the interval catches those). Log: `~/Library/Logs/herdr-mods-sync.log`.
 

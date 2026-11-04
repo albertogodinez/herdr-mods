@@ -8,18 +8,27 @@ Run by the launchd agent in scripts/ (on change, and every 30 s); safe to run by
 - layouts/       every layout except Herdr's own (main, terminals, win98), with its .svg/.png preview
 - keys.json      only the bindings that differ from scripts/keys.default.json, in the
                  "keys it expects" form herdr.dev recipes use
-A mod or layout you delete in Herdr is deleted here too. It never commits or pushes.
+A mod or layout you delete in Herdr is deleted here too.
+
+With --commit (the launchd agent passes it), synced changes are committed once they have
+sat unchanged for QUIET seconds, so one editing session becomes one commit. Only mods/,
+layouts/ and keys.json are staged; your own work elsewhere in the repo is left alone.
+It never pushes.
 """
 import filecmp
 import json
 import os
 import shutil
+import subprocess
 import sys
+import time
 
 HOME = os.environ.get("HERDR_APP_HOME") or os.path.expanduser("~/.config/herdr-app")
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SHIPPED_LAYOUTS = {"main", "terminals", "win98"}
 LAYOUT_ASSETS = (".json", ".svg", ".png")
+SYNCED = ["mods", "layouts", "keys.json"]
+QUIET = 120
 
 
 def app_written(name):
@@ -90,6 +99,31 @@ def sync_keys(changed):
         open(path, "w").write(text); changed.append("+ keys.json")
 
 
+def git(*args):
+    return subprocess.run(["git", "-C", REPO, *args], capture_output=True, text=True)
+
+
+def auto_commit():
+    """Commit the synced paths once nothing in them has changed for QUIET seconds."""
+    g = os.path.join(REPO, ".git")
+    if any(os.path.exists(os.path.join(g, x)) for x in ("MERGE_HEAD", "REBASE_HEAD", "rebase-merge", "rebase-apply", "index.lock")):
+        return
+    if git("symbolic-ref", "-q", "HEAD").returncode != 0:  # detached HEAD: leave it to you
+        return
+    status = git("status", "--porcelain=v1", "-z", "--untracked-files=all", "--", *SYNCED).stdout
+    paths = [e[3:] for e in status.split("\0") if len(e) > 3]
+    if not paths:
+        return
+    newest = max((os.path.getmtime(os.path.join(REPO, p)) for p in paths if os.path.exists(os.path.join(REPO, p))), default=0)
+    if time.time() - newest < QUIET:
+        return  # still being edited; a later run commits
+    names = sorted({p.split("/")[1] if p.count("/") >= 1 and p.split("/")[0] in ("mods", "layouts") else p for p in paths})
+    git("add", "-A", "--", *SYNCED)
+    msg = f"Auto-sync: {', '.join(names[:6])}{' and more' if len(names) > 6 else ''}"
+    r = git("commit", "-q", "-m", msg, "--", *SYNCED)
+    print(msg if r.returncode == 0 else f"auto-commit failed: {r.stderr.strip()}")
+
+
 def main():
     changed = []
     sync_mods(changed)
@@ -97,6 +131,8 @@ def main():
     sync_keys(changed)
     for line in changed:
         print(line)
+    if "--commit" in sys.argv[1:]:
+        auto_commit()
     return 0
 
 

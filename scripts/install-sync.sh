@@ -25,7 +25,7 @@ cat >"$PLIST" <<EOF
 <dict>
   <key>Label</key><string>$LABEL</string>
   <key>ProgramArguments</key>
-  <array><string>$PY</string><string>-I</string><string>$REPO/scripts/sync.py</string></array>
+  <array><string>$PY</string><string>-I</string><string>$REPO/scripts/sync.py</string><string>--commit</string></array>
   <key>EnvironmentVariables</key><dict><key>HERDR_APP_HOME</key><string>$APP</string></dict>
   <!-- Fires when an entry in these changes; edits nested inside a mod folder are caught by the interval. -->
   <key>WatchPaths</key>
