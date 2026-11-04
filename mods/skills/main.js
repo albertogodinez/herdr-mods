@@ -9,11 +9,19 @@ const current = () => { const f = focused(); return f?.shown ?? f?.terminal ?? (
 // Data: focused terminal -> its foreground pid (hc get) -> ~/.claude/sessions/<pid>.json
 // -> the transcript, read incrementally by scan.py.
 
-const ago = (ts) => {
-  const s = Math.max(0, (Date.now() - Date.parse(ts)) / 1000);
-  return s < 60 ? "now" : s < 3600 ? `${Math.floor(s / 60)}m` : s < 86400 ? `${Math.floor(s / 3600)}h` : `${Math.floor(s / 86400)}d`;
-};
+// Fixed times, not "5m ago": a fixed label never goes stale, so nothing redraws on a timer.
+const DAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const clock = (ts) => { const d = new Date(ts); return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`; };
+const today = (d) => new Date(d).toDateString() === new Date().toDateString();
+// The list's column: 13:42 today, then Tue for the last week, then Nov 2.
+const when = (ts) => {
+  const d = new Date(ts);
+  if (today(d)) return clock(ts);
+  return Date.now() - d < 6 * 86400000 ? DAY[d.getDay()] : `${MON[d.getMonth()]} ${d.getDate()}`;
+};
+// An expanded use: 13:42 today, else Tue 13:42.
+const stamp = (ts) => today(ts) ? clock(ts) : `${when(ts)} ${clock(ts)}`;
 
 function source(folder) {
   if (!folder) return "";
@@ -28,10 +36,8 @@ export default class Skills extends View {
   init(_props, cx) {
     this.reset(); this.terminal = null; this.open = new Set(); this.watching = new Set();
     this.refresh(cx);
-    // No polling: a rescan runs when Claude Code writes this session's transcript or session
-    // file (watchFolder), or when focus or the pane's program changes (render). The slow
-    // tick only redraws the "2m ago" labels; it runs nothing.
-    cx.timer.every(60000, (cx) => cx.notify());
+    // No polling and no timer: a rescan runs when Claude Code writes this session's transcript
+    // or session file (watchFolder), or when focus or the pane's program changes (render).
   }
 
   async close() { this.done = true; }
@@ -140,10 +146,10 @@ export default class Skills extends View {
         .child(div().flex_1().min_w(0).truncate().child(s.name))
         .when(Boolean(s.source), e => e.child(tag(s.source, s.source === "project" ? t.accent : t.muted)))
         .when(s.uses.length > 1, e => e.child(div().text_size(11).text_color(t.muted).child(`×${s.uses.length}`)))
-        .child(div().w(30).flex_none().text_right().text_size(11).text_color(t.dim).child(ago(last.ts))))
+        .child(div().w(40).flex_none().text_right().text_size(11).text_color(t.dim).child(when(last.ts))))
       .when(open, e => e.child(v_flex().pl(28).pr(8).pb(6).gap(4).children([...s.uses].reverse().map((u, i) =>
         v_flex().id(`use-${s.name}-${i}`).gap(1).p(6).rounded(6).bg(t.raised)
-          .child(h_flex().gap(6).text_size(10.5).text_color(t.dim).child(clock(u.ts)).child(HOW[u.how] ?? "agent called").when(u.sub, x => x.child(div().text_color(t.blocked).child("sub-agent"))))
+          .child(h_flex().gap(6).text_size(10.5).text_color(t.dim).child(stamp(u.ts)).child(HOW[u.how] ?? "agent called").when(u.sub, x => x.child(div().text_color(t.blocked).child("sub-agent"))))
           .when(typeof u.sub === "string", x => x.child(div().text_size(11).text_color(t.muted).truncate().child(u.sub)))
           .child(div().text_size(11.5).text_color(u.args || u.how === "path" ? t.foreground : t.dim).child(u.how === "path"
             ? `${u.tools.map(x => x === "Bash" ? "ran its scripts" : "read its files").join(", ")} · ${u.n} call${u.n > 1 ? "s" : ""}`
