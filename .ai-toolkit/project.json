@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "name": "herdr-mods",
+  "pr": {
+    "commentMarker": {
+      "mode": "off"
+    }
+  }
+}
