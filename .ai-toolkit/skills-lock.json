@@ -6,8 +6,8 @@
       "sourceType": "local",
       "bundle": "core",
       "skillPath": "bundles/core/diagnosing-bugs/SKILL.md",
-      "sourceRev": "6e505eb",
-      "computedHash": "abbf30137d31b318998cd52c18a37d4252ce93f6e46a0d74b451a207446555cb"
+      "sourceRev": "574d611",
+      "computedHash": "18964d44c119e7868bf80e4d7975b1e547193116399837b422567e51bed0c8ac"
     },
     "handoff": {
       "source": "agent-factory",
@@ -118,8 +118,8 @@
       "sourceType": "local",
       "bundle": "core",
       "skillPath": "bundles/core/toolkit-reflect/SKILL.md",
-      "sourceRev": "6e505eb",
-      "computedHash": "c9c92e7e9d82c30e0d6d3ebe7068b7da1b1533ee7e04ae2c8a78745501320aa6"
+      "sourceRev": "574d611",
+      "computedHash": "b57c8f3da3ddabb0e95523579e513c670c9067ff6d2f1ca46e09d53ab48b281c"
     },
     "toolkit-review": {
       "source": "agent-factory",
