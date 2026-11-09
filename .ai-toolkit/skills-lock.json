@@ -54,8 +54,8 @@
       "sourceType": "local",
       "bundle": "core",
       "skillPath": "bundles/core/toolkit-context/SKILL.md",
-      "sourceRev": "e15129b",
-      "computedHash": "061d82ca5aabdddcc6d0f4f4d12744527a475a3242f42df841527a6ad999fb6a"
+      "sourceRev": "4faffb7",
+      "computedHash": "d83c2a7cbdc1d52d8bb76c1a6432cfe895c1c53e16a5fec9fce64af55039912a"
     },
     "toolkit-dev-slot": {
       "source": "agent-factory",

@@ -18,7 +18,7 @@ node .agents/skills/toolkit-context/scripts/resolve.mjs --pretty        # for a 
 ## Sources, first match wins
 
 1. `--config <file>` or `AI_TOOLKIT_CONFIG`.
-2. The nearest `.ai-toolkit/project.json` from the cwd up to the git root. A linked worktree with none of its own uses the main checkout's.
+2. The nearest `.ai-toolkit/project.json` from the cwd up to the git root. A linked worktree with none of its own uses the main checkout's. If it has `"workspace": "<registry path>"` (a hub), the mode stays `workspace`: that registry lists the repos, and project.json's marker, adapters, personas and `writeAllowed` apply on top. `factory install` writes the pointer when the repo already has a registry.
 3. The nearest `.ai-toolkit/workspace.json` (a multi-repo registry; migration only).
 4. A legacy `.claude/repos.json` registry (read-only; migration only).
 5. Zero-config: git and the working tree. Trunk comes from `origin/HEAD`, then a `main`, `master` or `trunk` branch, then the current branch. The package manager comes from the lockfile, commands from `package.json` scripts, and the PR template from `.github/`.
@@ -49,6 +49,6 @@ Exit codes: 0 ok; 1 `--field` path not present; 2 bad usage, an invalid config, 
 
 ## Limits
 
-The resolver is a single file that imports only `node:` modules and makes no network calls. A cached call adds under 15 ms to Node's own startup (about 55 ms in all on a busy laptop) and never takes 100 ms; a cold call adds under 60 ms and stays under 150 ms. It spawns `git` at most once (only when `GIT_DIR` is set), and its output is at most 1 KB, or 200 B with `--field`. The cache lives in `~/.ai-toolkit/cache/resolver/` (or `$AI_TOOLKIT_HOME`), keyed by `HEAD` and the mtimes of every file it read.
+The resolver is a single file that imports only `node:` modules and makes no network calls. A cached call adds under 15 ms to Node's own startup (about 55 ms in all on a busy laptop) and never takes 100 ms; a cold call adds under 60 ms and stays under 150 ms. It spawns `git` at most once (only when `GIT_DIR` is set), and its output is at most 1 KB plus 70 B per neighbor, or 200 B with `--field`. The cache lives in `~/.ai-toolkit/cache/resolver/` (or `$AI_TOOLKIT_HOME`), keyed by `HEAD` and the mtimes of every file it read.
 
 Tests: `node --test bundles/core/toolkit-context/scripts/resolve.test.mjs`. In agent-factory, `tests/guardrails/resolver.guard.mjs` enforces the limits.
