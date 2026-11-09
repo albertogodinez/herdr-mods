@@ -70,8 +70,8 @@
       "sourceType": "local",
       "bundle": "core",
       "skillPath": "bundles/core/toolkit-feature-map/SKILL.md",
-      "sourceRev": "6e505eb",
-      "computedHash": "79421e3b5517932e6fcdd02707e5c08aa51ba888311d7b6f061a7cd4e63b6953"
+      "sourceRev": "2fbab53",
+      "computedHash": "abf99035ab10160776207b658cc762316d3700f21ffd4c8beecb0ed9bf851253"
     },
     "toolkit-plan-create": {
       "source": "agent-factory",
@@ -174,8 +174,8 @@
       "sourceType": "local",
       "bundle": "core",
       "skillPath": "bundles/core/toolkit-repo-register/SKILL.md",
-      "sourceRev": "6e505eb",
-      "computedHash": "d84ed7bd8c2f70fb90eb746d1fdff465fa4cbf0bf0109d8ab0f06832f5fa0312"
+      "sourceRev": "2fbab53",
+      "computedHash": "42503de0f46e9e7250afd310de9ff29d8268e6d93f6b566f48d5c18baa50d904"
     },
     "toolkit-repo-status": {
       "source": "agent-factory",
