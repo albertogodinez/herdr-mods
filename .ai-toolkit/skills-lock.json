@@ -6,8 +6,8 @@
       "sourceType": "local",
       "bundle": "core",
       "skillPath": "bundles/core/diagnosing-bugs/SKILL.md",
-      "sourceRev": "574d611",
-      "computedHash": "18964d44c119e7868bf80e4d7975b1e547193116399837b422567e51bed0c8ac"
+      "sourceRev": "185e815",
+      "computedHash": "1f1eef5f065757ffdfd18276bfc77e41ab4694a74bc73da7aae9de84ca4201fc"
     },
     "handoff": {
       "source": "agent-factory",
@@ -22,8 +22,8 @@
       "sourceType": "local",
       "bundle": "core",
       "skillPath": "bundles/core/improve-codebase-architecture/SKILL.md",
-      "sourceRev": "4c5f381",
-      "computedHash": "6a865551c48bc4bbb68e10ee50331a77834cc0d91accc3c9273fb754f56df1a7"
+      "sourceRev": "185e815",
+      "computedHash": "b059596df931d015278e751eeb7e99da10edba722e1e7cc0d09269a10f351b23"
     },
     "principle-prove-it-works": {
       "source": "agent-factory",
@@ -118,8 +118,8 @@
       "sourceType": "local",
       "bundle": "core",
       "skillPath": "bundles/core/toolkit-reflect/SKILL.md",
-      "sourceRev": "574d611",
-      "computedHash": "b57c8f3da3ddabb0e95523579e513c670c9067ff6d2f1ca46e09d53ab48b281c"
+      "sourceRev": "185e815",
+      "computedHash": "d875801ef1e0732fa484c5c48bd75085222ff609bb64344e397d6a8adc83fd37"
     },
     "toolkit-review": {
       "source": "agent-factory",
@@ -134,8 +134,8 @@
       "sourceType": "local",
       "bundle": "core",
       "skillPath": "bundles/core/wait-what/SKILL.md",
-      "sourceRev": "4c5f381",
-      "computedHash": "5146c3ae7185a3590819b8ad4d66256c92292cdb33973ffa36ac06779ddc1a43"
+      "sourceRev": "185e815",
+      "computedHash": "845cb1e9fdbffa37ce68b5d24bbfb17f609c1579cf2e07b9ecbde4e7c3ce440a"
     },
     "writing-for-agents": {
       "source": "agent-factory",
@@ -296,6 +296,14 @@
       "skillPath": "bundles/core/unslop/SKILL.md",
       "sourceRev": "4b63e56",
       "computedHash": "f62902fb5f6539464c73fcb433a32f496fee908c6da8caa92b23609d8a50614e"
+    },
+    "toolkit-glossary": {
+      "source": "agent-factory",
+      "sourceType": "local",
+      "bundle": "core",
+      "skillPath": "bundles/core/toolkit-glossary/SKILL.md",
+      "sourceRev": "185e815",
+      "computedHash": "21289926baed719aef00ec4791e00f6838ded622577e92063367ff4bba710345"
     }
   },
   "mode": "commit",
