@@ -6,136 +6,56 @@
       "sourceType": "local",
       "bundle": "core",
       "skillPath": "bundles/core/diagnosing-bugs/SKILL.md",
-      "sourceRev": "59ee8de",
-      "computedHash": "1f1eef5f065757ffdfd18276bfc77e41ab4694a74bc73da7aae9de84ca4201fc"
+      "sourceRev": "07b1ca2",
+      "computedHash": "e0cfaec179ba18f1af02d58813f48e7d9b5f7534ee20b538af9e4e5ae6987364"
     },
     "handoff": {
       "source": "factory-core",
       "sourceType": "local",
       "bundle": "core",
       "skillPath": "bundles/core/handoff/SKILL.md",
-      "sourceRev": "59ee8de",
-      "computedHash": "23003df7b13da4541b8ce9cff57345c8d7a692453cd83e69e18695ea3036f774"
+      "sourceRev": "07b1ca2",
+      "computedHash": "b99e26f1813a286c72a53c26d8d4df30636ad9474c8050ef493805a53844290b"
     },
     "improve-codebase-architecture": {
       "source": "factory-core",
       "sourceType": "local",
       "bundle": "core",
       "skillPath": "bundles/core/improve-codebase-architecture/SKILL.md",
-      "sourceRev": "59ee8de",
-      "computedHash": "b059596df931d015278e751eeb7e99da10edba722e1e7cc0d09269a10f351b23"
+      "sourceRev": "07b1ca2",
+      "computedHash": "90c59ed631b65c4ff141fe1dc558cd96007a4f42ca4dc719360f06c4c08509a8"
     },
     "principle-prove-it-works": {
       "source": "factory-core",
       "sourceType": "local",
       "bundle": "core",
       "skillPath": "bundles/core/principle-prove-it-works/SKILL.md",
-      "sourceRev": "59ee8de",
-      "computedHash": "e1c4204aed271067d2c3afd0a62d903c3ed27e5ec444c2808b6d3a8596cf5e07"
+      "sourceRev": "07b1ca2",
+      "computedHash": "a0d75b66e2f4641e6ff13532920e11419b13d14f894e27864a8a818a218e17ae"
     },
     "show-me-your-work": {
       "source": "factory-core",
       "sourceType": "local",
       "bundle": "core",
       "skillPath": "bundles/core/show-me-your-work/SKILL.md",
-      "sourceRev": "59ee8de",
-      "computedHash": "14d063166162ebf739cf587899a695b9d4705a767d38cf0cef8e1e1d45c8583d"
+      "sourceRev": "07b1ca2",
+      "computedHash": "ca331aeb0aa7b3a038f8e3c734a13136a9e908180b6d345e05848ab724de908a"
     },
     "statechart": {
       "source": "factory-core",
       "sourceType": "local",
       "bundle": "core",
       "skillPath": "bundles/core/statechart/SKILL.md",
-      "sourceRev": "59ee8de",
-      "computedHash": "c24056e5b654e6d1af57847ec8ccfd656b3c51edff2a253e983e1477ace64de5"
-    },
-    "toolkit-context": {
-      "source": "factory-core",
-      "sourceType": "local",
-      "bundle": "core",
-      "skillPath": "bundles/core/toolkit-context/SKILL.md",
-      "sourceRev": "59ee8de",
-      "computedHash": "be0c148ede49449687633d0e885e6cca97cd1f299d66ca8e9792cea7d8cef4cb"
-    },
-    "toolkit-dev-slot": {
-      "source": "factory-core",
-      "sourceType": "local",
-      "bundle": "core",
-      "skillPath": "bundles/core/toolkit-dev-slot/SKILL.md",
-      "sourceRev": "59ee8de",
-      "computedHash": "12e5dad9727dcc909ed7329a91250f22c17129eafb51f66d83d35e1f9f1d89c0"
-    },
-    "toolkit-feature-map": {
-      "source": "factory-core",
-      "sourceType": "local",
-      "bundle": "core",
-      "skillPath": "bundles/core/toolkit-feature-map/SKILL.md",
-      "sourceRev": "59ee8de",
-      "computedHash": "36fad984af3fa7c8221a147f2433048c4f16c97a24b0d671e52041c7d058b6c7"
-    },
-    "toolkit-plan-create": {
-      "source": "factory-core",
-      "sourceType": "local",
-      "bundle": "core",
-      "skillPath": "bundles/core/toolkit-plan-create/SKILL.md",
-      "sourceRev": "59ee8de",
-      "computedHash": "569a4f078b9dab449719365bc0143f815665f9c0f93008d177e0d67a031520f5"
-    },
-    "toolkit-pr-ci-monitor": {
-      "source": "factory-core",
-      "sourceType": "local",
-      "bundle": "core",
-      "skillPath": "bundles/core/toolkit-pr-ci-monitor/SKILL.md",
-      "sourceRev": "59ee8de",
-      "computedHash": "3b43a522d4451b67290df63661e69abcdd96d6f0e0b4be21b2830990c1d34edc"
-    },
-    "toolkit-pr-comment": {
-      "source": "factory-core",
-      "sourceType": "local",
-      "bundle": "core",
-      "skillPath": "bundles/core/toolkit-pr-comment/SKILL.md",
-      "sourceRev": "59ee8de",
-      "computedHash": "49fed24b7cefaad18de2201053e97bb24d3240fd0d5ee6c0bb11c726ea03e816"
-    },
-    "toolkit-pr-create": {
-      "source": "factory-core",
-      "sourceType": "local",
-      "bundle": "core",
-      "skillPath": "bundles/core/toolkit-pr-create/SKILL.md",
-      "sourceRev": "59ee8de",
-      "computedHash": "ee32edcbb93d66cde42a43e8e9cc9bbbf2b98375936199c881d2a939c58fbdc5"
-    },
-    "toolkit-record-flow": {
-      "source": "factory-core",
-      "sourceType": "local",
-      "bundle": "core",
-      "skillPath": "bundles/core/toolkit-record-flow/SKILL.md",
-      "sourceRev": "59ee8de",
-      "computedHash": "5d0be2ee8989461dd3137afc85fe85375f0d7c5c176c0a61b327a0384496a13f"
-    },
-    "toolkit-reflect": {
-      "source": "factory-core",
-      "sourceType": "local",
-      "bundle": "core",
-      "skillPath": "bundles/core/toolkit-reflect/SKILL.md",
-      "sourceRev": "59ee8de",
-      "computedHash": "c6927a531be500e3b1f31b1318319cbc2dcebf455133bfeee3948e316e24028e"
-    },
-    "toolkit-review": {
-      "source": "factory-core",
-      "sourceType": "local",
-      "bundle": "core",
-      "skillPath": "bundles/core/toolkit-review/SKILL.md",
-      "sourceRev": "59ee8de",
-      "computedHash": "4a987b821dd7430046187895294c3d67b7c4a414cfe9fba96fb49a3b806a12bf"
+      "sourceRev": "07b1ca2",
+      "computedHash": "a7fc1934051fcfdf2077dc2981529087db8996df2859787976131f5360762f81"
     },
     "wait-what": {
       "source": "factory-core",
       "sourceType": "local",
       "bundle": "core",
       "skillPath": "bundles/core/wait-what/SKILL.md",
-      "sourceRev": "59ee8de",
-      "computedHash": "845cb1e9fdbffa37ce68b5d24bbfb17f609c1579cf2e07b9ecbde4e7c3ce440a"
+      "sourceRev": "07b1ca2",
+      "computedHash": "cf413c13bca6ef86c7e6f64ca865c492b0ce28c3161a5052a673b7bd8e18e9f0"
     },
     "writing-for-agents": {
       "source": "factory-core",
@@ -144,54 +64,6 @@
       "skillPath": "bundles/core/writing-for-agents/SKILL.md",
       "sourceRev": "59ee8de",
       "computedHash": "f9b73434d5ec4b7583d7bbb39e7f8e96c148473e416048b729300433a07c30fe"
-    },
-    "toolkit-ask": {
-      "source": "factory-core",
-      "sourceType": "local",
-      "bundle": "core",
-      "skillPath": "bundles/core/toolkit-ask/SKILL.md",
-      "sourceRev": "59ee8de",
-      "computedHash": "aca1534dcd4a486d1462962ff2abb758b96f972c4ba34100dda8612f7542750e"
-    },
-    "toolkit-docs-validate": {
-      "source": "factory-core",
-      "sourceType": "local",
-      "bundle": "core",
-      "skillPath": "bundles/core/toolkit-docs-validate/SKILL.md",
-      "sourceRev": "59ee8de",
-      "computedHash": "22ab40ef8f3e1ed98440a179039426f1fa2f58acd97e4fa27ae004a2ad3cbf7d"
-    },
-    "toolkit-pr-mining": {
-      "source": "factory-core",
-      "sourceType": "local",
-      "bundle": "core",
-      "skillPath": "bundles/core/toolkit-pr-mining/SKILL.md",
-      "sourceRev": "59ee8de",
-      "computedHash": "908e9282a11527d03033e6ebae21fac804319c33ac5fd853f2f7549a0d144cee"
-    },
-    "toolkit-repo-register": {
-      "source": "factory-core",
-      "sourceType": "local",
-      "bundle": "core",
-      "skillPath": "bundles/core/toolkit-repo-register/SKILL.md",
-      "sourceRev": "59ee8de",
-      "computedHash": "bbe6d1e32adb5528f5fbf70136ba1ece6b65d2fb69f514831a976fcbdb2d7bf9"
-    },
-    "toolkit-repo-status": {
-      "source": "factory-core",
-      "sourceType": "local",
-      "bundle": "core",
-      "skillPath": "bundles/core/toolkit-repo-status/SKILL.md",
-      "sourceRev": "59ee8de",
-      "computedHash": "915081a9808a7f7cde4115ce7ee652bb6c41faa8764cb52c34efeae809c5a002"
-    },
-    "toolkit-tool-sync": {
-      "source": "factory-core",
-      "sourceType": "local",
-      "bundle": "core",
-      "skillPath": "bundles/core/toolkit-tool-sync/SKILL.md",
-      "sourceRev": "59ee8de",
-      "computedHash": "13bc992e1484d3b9400d00fb00f7a530134348cfda8c2c9eb211563f71345b4a"
     },
     "correct": {
       "source": "factory-core",
@@ -206,8 +78,8 @@
       "sourceType": "local",
       "bundle": "core",
       "skillPath": "bundles/core/no-comments/SKILL.md",
-      "sourceRev": "59ee8de",
-      "computedHash": "840e39f3f419e33665431a5cdd2d4dd7f8ca29ee8f6b8baae62fd41b310644a5"
+      "sourceRev": "07b1ca2",
+      "computedHash": "70324f2c54892efe63bb6e9154b78d41def889e56384847ebdf3029b9e5ada62"
     },
     "principle-attack-the-premise": {
       "source": "factory-core",
@@ -238,56 +110,8 @@
       "sourceType": "local",
       "bundle": "core",
       "skillPath": "bundles/core/technical-writing/SKILL.md",
-      "sourceRev": "59ee8de",
-      "computedHash": "9887cebe38729a6508c7ffb9f32c177a011350cf977dc23254ed30e929838206"
-    },
-    "toolkit-design-verify": {
-      "source": "factory-core",
-      "sourceType": "local",
-      "bundle": "core",
-      "skillPath": "bundles/core/toolkit-design-verify/SKILL.md",
-      "sourceRev": "59ee8de",
-      "computedHash": "0e80458312693961895323d882da5c80b3e48d041c633b85516d11d2b84e4fd4"
-    },
-    "toolkit-formal-verify": {
-      "source": "factory-core",
-      "sourceType": "local",
-      "bundle": "core",
-      "skillPath": "bundles/core/toolkit-formal-verify/SKILL.md",
-      "sourceRev": "59ee8de",
-      "computedHash": "f5b919de69f5f19c3b4e9f5e903f7c375931dd805cea307d60ee4d0024e6d8fa"
-    },
-    "toolkit-primitive-fit-audit": {
-      "source": "factory-core",
-      "sourceType": "local",
-      "bundle": "core",
-      "skillPath": "bundles/core/toolkit-primitive-fit-audit/SKILL.md",
-      "sourceRev": "59ee8de",
-      "computedHash": "839233c36c83d4720b141e0d937e08f9f92316e2546ca79457c35cce823b24b6"
-    },
-    "toolkit-safari-check": {
-      "source": "factory-core",
-      "sourceType": "local",
-      "bundle": "core",
-      "skillPath": "bundles/core/toolkit-safari-check/SKILL.md",
-      "sourceRev": "59ee8de",
-      "computedHash": "b46a5235ac687f182b28060023ef10682c7f0f1e394738241c4ac110bbb92f8c"
-    },
-    "toolkit-second-opinion": {
-      "source": "factory-core",
-      "sourceType": "local",
-      "bundle": "core",
-      "skillPath": "bundles/core/toolkit-second-opinion/SKILL.md",
-      "sourceRev": "59ee8de",
-      "computedHash": "cd97fe3a88e2603a8223c546b7d27ab07e3ff96370659613d73b71f1e715b0a7"
-    },
-    "toolkit-stacked-pr": {
-      "source": "factory-core",
-      "sourceType": "local",
-      "bundle": "core",
-      "skillPath": "bundles/core/toolkit-stacked-pr/SKILL.md",
-      "sourceRev": "59ee8de",
-      "computedHash": "3420adcbdb1c7cfe453e29e3c5630d6460bb83b28901e7dd4edae1653c2d3a28"
+      "sourceRev": "07b1ca2",
+      "computedHash": "6ebf7a75a7079fc7284efe683d5b9b31bf600bcc8abb12808500a340c1fa780c"
     },
     "unslop": {
       "source": "factory-core",
@@ -297,13 +121,189 @@
       "sourceRev": "59ee8de",
       "computedHash": "f62902fb5f6539464c73fcb433a32f496fee908c6da8caa92b23609d8a50614e"
     },
-    "toolkit-glossary": {
+    "factory-ask": {
       "source": "factory-core",
       "sourceType": "local",
       "bundle": "core",
-      "skillPath": "bundles/core/toolkit-glossary/SKILL.md",
-      "sourceRev": "59ee8de",
-      "computedHash": "21289926baed719aef00ec4791e00f6838ded622577e92063367ff4bba710345"
+      "skillPath": "bundles/core/factory-ask/SKILL.md",
+      "sourceRev": "07b1ca2",
+      "computedHash": "46e2e55ebfd4256bb743bcc436cc9dffc941992ba942659064ee91d443eb4e54"
+    },
+    "factory-context": {
+      "source": "factory-core",
+      "sourceType": "local",
+      "bundle": "core",
+      "skillPath": "bundles/core/factory-context/SKILL.md",
+      "sourceRev": "07b1ca2",
+      "computedHash": "589298d552d6edd6ae4184d03181aaaa117c772a1a03ffa3669fc52643ea7f2f"
+    },
+    "factory-design-verify": {
+      "source": "factory-core",
+      "sourceType": "local",
+      "bundle": "core",
+      "skillPath": "bundles/core/factory-design-verify/SKILL.md",
+      "sourceRev": "07b1ca2",
+      "computedHash": "e5e3cd5a6127da05b479b1cead8bd570269797c066ec46d039ee92920220ed51"
+    },
+    "factory-dev-slot": {
+      "source": "factory-core",
+      "sourceType": "local",
+      "bundle": "core",
+      "skillPath": "bundles/core/factory-dev-slot/SKILL.md",
+      "sourceRev": "07b1ca2",
+      "computedHash": "a7fe293f349e525e4e1f1d58a8495ef7291d064da4ceb3b5694ebb6a6926a990"
+    },
+    "factory-docs-validate": {
+      "source": "factory-core",
+      "sourceType": "local",
+      "bundle": "core",
+      "skillPath": "bundles/core/factory-docs-validate/SKILL.md",
+      "sourceRev": "07b1ca2",
+      "computedHash": "d2ce90732d60757021ebb8fb3a8ee6ca37903a24df1d1e97895a7ae99bafd4f1"
+    },
+    "factory-feature-map": {
+      "source": "factory-core",
+      "sourceType": "local",
+      "bundle": "core",
+      "skillPath": "bundles/core/factory-feature-map/SKILL.md",
+      "sourceRev": "07b1ca2",
+      "computedHash": "d978e4e76a9e5d0748fa7af2d1750c40fa361f1c213ee2c420fb19453fcea440"
+    },
+    "factory-formal-verify": {
+      "source": "factory-core",
+      "sourceType": "local",
+      "bundle": "core",
+      "skillPath": "bundles/core/factory-formal-verify/SKILL.md",
+      "sourceRev": "07b1ca2",
+      "computedHash": "8b9a2cffe8cbb12d8bbeed98b0fe537206d73bd80a09d3e0e1dc1b8fc12f142e"
+    },
+    "factory-glossary": {
+      "source": "factory-core",
+      "sourceType": "local",
+      "bundle": "core",
+      "skillPath": "bundles/core/factory-glossary/SKILL.md",
+      "sourceRev": "07b1ca2",
+      "computedHash": "b050a141d082475c39c01ec6b7b50971ed44ccfc7b654106c70a88cb70cb683e"
+    },
+    "factory-plan-create": {
+      "source": "factory-core",
+      "sourceType": "local",
+      "bundle": "core",
+      "skillPath": "bundles/core/factory-plan-create/SKILL.md",
+      "sourceRev": "07b1ca2",
+      "computedHash": "a45b49107f770f477c64db37a4fd152c4ba511910038a6755a0a723a4657426b"
+    },
+    "factory-pr-ci-monitor": {
+      "source": "factory-core",
+      "sourceType": "local",
+      "bundle": "core",
+      "skillPath": "bundles/core/factory-pr-ci-monitor/SKILL.md",
+      "sourceRev": "07b1ca2",
+      "computedHash": "e75affdb35dd69cd88b97073c7a1d369c686eceb5f6f18b324fdd5742f3c6b93"
+    },
+    "factory-pr-comment": {
+      "source": "factory-core",
+      "sourceType": "local",
+      "bundle": "core",
+      "skillPath": "bundles/core/factory-pr-comment/SKILL.md",
+      "sourceRev": "07b1ca2",
+      "computedHash": "2440ec25d6403134691768f42b664c5e6e274374cf692a51e1ce4e4dbfb8babd"
+    },
+    "factory-pr-create": {
+      "source": "factory-core",
+      "sourceType": "local",
+      "bundle": "core",
+      "skillPath": "bundles/core/factory-pr-create/SKILL.md",
+      "sourceRev": "07b1ca2",
+      "computedHash": "021b9e200e67dea3df40a92a1a8ba6cc22e2c690ad1c0a9ad5e89b3b4733eb17"
+    },
+    "factory-pr-mining": {
+      "source": "factory-core",
+      "sourceType": "local",
+      "bundle": "core",
+      "skillPath": "bundles/core/factory-pr-mining/SKILL.md",
+      "sourceRev": "07b1ca2",
+      "computedHash": "68285f0c7b3a0b65c1292e16a137c13eed0e47e2cadcb6c5c86a5be5e956008a"
+    },
+    "factory-primitive-fit-audit": {
+      "source": "factory-core",
+      "sourceType": "local",
+      "bundle": "core",
+      "skillPath": "bundles/core/factory-primitive-fit-audit/SKILL.md",
+      "sourceRev": "07b1ca2",
+      "computedHash": "bc7985ee976aeedb6b17c13603ff3a70000f905452ff817f73c452619d1003ca"
+    },
+    "factory-record-flow": {
+      "source": "factory-core",
+      "sourceType": "local",
+      "bundle": "core",
+      "skillPath": "bundles/core/factory-record-flow/SKILL.md",
+      "sourceRev": "07b1ca2",
+      "computedHash": "ec337813c1a8fa9a0975ed30021e8d9083fb967350b565a7ac22704d4392c2a1"
+    },
+    "factory-reflect": {
+      "source": "factory-core",
+      "sourceType": "local",
+      "bundle": "core",
+      "skillPath": "bundles/core/factory-reflect/SKILL.md",
+      "sourceRev": "07b1ca2",
+      "computedHash": "704c01dd9ec96ad182cdeddafe6dde7487b644f2fbc761f8608d20f8f4abcd86"
+    },
+    "factory-repo-register": {
+      "source": "factory-core",
+      "sourceType": "local",
+      "bundle": "core",
+      "skillPath": "bundles/core/factory-repo-register/SKILL.md",
+      "sourceRev": "07b1ca2",
+      "computedHash": "032f5c9510b6be2320a41b13552599c6d697d5586d3b75821f0606cb782ca8e6"
+    },
+    "factory-repo-status": {
+      "source": "factory-core",
+      "sourceType": "local",
+      "bundle": "core",
+      "skillPath": "bundles/core/factory-repo-status/SKILL.md",
+      "sourceRev": "07b1ca2",
+      "computedHash": "d2185c4717cbf7e7cad648a774bd68abaabac4454517f2137675a9c454af343e"
+    },
+    "factory-review": {
+      "source": "factory-core",
+      "sourceType": "local",
+      "bundle": "core",
+      "skillPath": "bundles/core/factory-review/SKILL.md",
+      "sourceRev": "07b1ca2",
+      "computedHash": "92ac097d9beaf22a88f819321783605def9314646ba45d9bd2f5b699c0773402"
+    },
+    "factory-safari-check": {
+      "source": "factory-core",
+      "sourceType": "local",
+      "bundle": "core",
+      "skillPath": "bundles/core/factory-safari-check/SKILL.md",
+      "sourceRev": "07b1ca2",
+      "computedHash": "f8bdc0398b69168e208cafc6d5e16adaec538366f85d93c6938d378374f23a9d"
+    },
+    "factory-second-opinion": {
+      "source": "factory-core",
+      "sourceType": "local",
+      "bundle": "core",
+      "skillPath": "bundles/core/factory-second-opinion/SKILL.md",
+      "sourceRev": "07b1ca2",
+      "computedHash": "7d9c15545ad36ee8d58d8cf584fbc0d98f435b49adab66a5ee9e470df5ba811a"
+    },
+    "factory-stacked-pr": {
+      "source": "factory-core",
+      "sourceType": "local",
+      "bundle": "core",
+      "skillPath": "bundles/core/factory-stacked-pr/SKILL.md",
+      "sourceRev": "07b1ca2",
+      "computedHash": "4607ba399567c6d23f5da6ec946940186b09e159d15803693b69e0b1d0759c60"
+    },
+    "factory-tool-sync": {
+      "source": "factory-core",
+      "sourceType": "local",
+      "bundle": "core",
+      "skillPath": "bundles/core/factory-tool-sync/SKILL.md",
+      "sourceRev": "07b1ca2",
+      "computedHash": "682fa726677aada95b29c89b53498e27cb7663996d82ffdfde16ab8fe5b7dea3"
     }
   },
   "mode": "commit",
