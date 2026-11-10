@@ -254,8 +254,8 @@
       "sourceType": "local",
       "bundle": "core",
       "skillPath": "bundles/core/toolkit-formal-verify/SKILL.md",
-      "sourceRev": "4b63e56",
-      "computedHash": "d747b74089719bc6b1a46e476a63746f4212ded91c6e5a1a7195b0e6a9940256"
+      "sourceRev": "ab62b60",
+      "computedHash": "9409bde3a2d071e56de4b6edbdb9aee4ca33c6774656514b0a61b6bd48e6d0f3"
     },
     "toolkit-primitive-fit-audit": {
       "source": "agent-factory",
