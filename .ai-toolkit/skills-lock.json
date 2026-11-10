@@ -192,6 +192,110 @@
       "skillPath": "bundles/core/toolkit-tool-sync/SKILL.md",
       "sourceRev": "6e505eb",
       "computedHash": "9a24284f2d821e65bc3a4fdf382e69e960f9b9ca2d684af133736a301e29b9d1"
+    },
+    "correct": {
+      "source": "agent-factory",
+      "sourceType": "local",
+      "bundle": "core",
+      "skillPath": "bundles/core/correct/SKILL.md",
+      "sourceRev": "4b63e56",
+      "computedHash": "ada3b5917629ff4e3a73594b5a1fae3745028fe5312c697ee761337af9f28cae"
+    },
+    "no-comments": {
+      "source": "agent-factory",
+      "sourceType": "local",
+      "bundle": "core",
+      "skillPath": "bundles/core/no-comments/SKILL.md",
+      "sourceRev": "4b63e56",
+      "computedHash": "840e39f3f419e33665431a5cdd2d4dd7f8ca29ee8f6b8baae62fd41b310644a5"
+    },
+    "principle-attack-the-premise": {
+      "source": "agent-factory",
+      "sourceType": "local",
+      "bundle": "core",
+      "skillPath": "bundles/core/principle-attack-the-premise/SKILL.md",
+      "sourceRev": "4b63e56",
+      "computedHash": "0c692d8506a598bf8cb5ec4e96ed45f76c89ffc983cafcd1b5e0da338156faff"
+    },
+    "principle-build-the-lever": {
+      "source": "agent-factory",
+      "sourceType": "local",
+      "bundle": "core",
+      "skillPath": "bundles/core/principle-build-the-lever/SKILL.md",
+      "sourceRev": "4b63e56",
+      "computedHash": "6e111709fef3fdda25eb75eb8aeb06294bf839097280aa21c53c5f95e31a3c63"
+    },
+    "principle-subtract-before-you-add": {
+      "source": "agent-factory",
+      "sourceType": "local",
+      "bundle": "core",
+      "skillPath": "bundles/core/principle-subtract-before-you-add/SKILL.md",
+      "sourceRev": "4b63e56",
+      "computedHash": "271007a9dec4d0459c461c6d35ef95e9fa6109a18b08cc13ff2bcbf4c48cd78a"
+    },
+    "technical-writing": {
+      "source": "agent-factory",
+      "sourceType": "local",
+      "bundle": "core",
+      "skillPath": "bundles/core/technical-writing/SKILL.md",
+      "sourceRev": "4b63e56",
+      "computedHash": "9887cebe38729a6508c7ffb9f32c177a011350cf977dc23254ed30e929838206"
+    },
+    "toolkit-design-verify": {
+      "source": "agent-factory",
+      "sourceType": "local",
+      "bundle": "core",
+      "skillPath": "bundles/core/toolkit-design-verify/SKILL.md",
+      "sourceRev": "4b63e56",
+      "computedHash": "0e80458312693961895323d882da5c80b3e48d041c633b85516d11d2b84e4fd4"
+    },
+    "toolkit-formal-verify": {
+      "source": "agent-factory",
+      "sourceType": "local",
+      "bundle": "core",
+      "skillPath": "bundles/core/toolkit-formal-verify/SKILL.md",
+      "sourceRev": "4b63e56",
+      "computedHash": "d747b74089719bc6b1a46e476a63746f4212ded91c6e5a1a7195b0e6a9940256"
+    },
+    "toolkit-primitive-fit-audit": {
+      "source": "agent-factory",
+      "sourceType": "local",
+      "bundle": "core",
+      "skillPath": "bundles/core/toolkit-primitive-fit-audit/SKILL.md",
+      "sourceRev": "4b63e56",
+      "computedHash": "839233c36c83d4720b141e0d937e08f9f92316e2546ca79457c35cce823b24b6"
+    },
+    "toolkit-safari-check": {
+      "source": "agent-factory",
+      "sourceType": "local",
+      "bundle": "core",
+      "skillPath": "bundles/core/toolkit-safari-check/SKILL.md",
+      "sourceRev": "4b63e56",
+      "computedHash": "b46a5235ac687f182b28060023ef10682c7f0f1e394738241c4ac110bbb92f8c"
+    },
+    "toolkit-second-opinion": {
+      "source": "agent-factory",
+      "sourceType": "local",
+      "bundle": "core",
+      "skillPath": "bundles/core/toolkit-second-opinion/SKILL.md",
+      "sourceRev": "4b63e56",
+      "computedHash": "a44701f1d366b23ee87b02eae59c12b3b54f51b0aefc001ac993df6988b7a1be"
+    },
+    "toolkit-stacked-pr": {
+      "source": "agent-factory",
+      "sourceType": "local",
+      "bundle": "core",
+      "skillPath": "bundles/core/toolkit-stacked-pr/SKILL.md",
+      "sourceRev": "4b63e56",
+      "computedHash": "3420adcbdb1c7cfe453e29e3c5630d6460bb83b28901e7dd4edae1653c2d3a28"
+    },
+    "unslop": {
+      "source": "agent-factory",
+      "sourceType": "local",
+      "bundle": "core",
+      "skillPath": "bundles/core/unslop/SKILL.md",
+      "sourceRev": "4b63e56",
+      "computedHash": "f62902fb5f6539464c73fcb433a32f496fee908c6da8caa92b23609d8a50614e"
     }
   },
   "mode": "commit",
