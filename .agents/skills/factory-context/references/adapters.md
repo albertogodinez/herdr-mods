@@ -34,6 +34,14 @@ Data, not a skill. See `factory-pr-comment/references/github-pr-comments.md` §1
 
 Read from the **source repo** a lesson lands in (`resolve.mjs --cwd <repo>`), not from the repo the session ran in. `factory-reflect` uses them in "Landing a lesson branch".
 
-- `adapters.reviewUI` names the review step for a lesson branch. `plannotator-review` runs `plannotator review <worktree> --gate --json` and reads its `decision`. Unset means the diff in chat, one commit at a time.
+- `adapters.reviewUI` names the review step for a lesson branch. `plannotator-review` writes a guided review first (`factory-reflect/scripts/guide.mjs`, the guide by a subagent on the newest Sonnet), then runs `plannotator review <worktree | PR URL> --gate --json` and reads its `decision`. When the branch has an open PR, the guide and the review both go to the PR, and its comments are posted there when the review's destination is GitHub (the default). Plannotator has no flag that writes a guide on open, so the guide is written first and imported. Unset means the diff in chat, one commit at a time.
 - `adapters.lessonInbox` names where a notice goes when a lesson branch is left undecided. `plannotator-inbox` sends one message to the thread `factory lessons`. It is a notice only; approval is always the review step.
 - `adapters.lessonLanding`: `local-review` (default) fast-forwards trunk after approval and pushes; `pr` pushes the branch and opens a PR for a repo with other reviewers.
+
+## sessionLauncher
+
+A fact of the machine, not of a repo: `~/.agents/factory/config.json` holds it (`{"adapters": {"sessionLauncher": "factory-launcher-hc"}}`), and `factory setup` writes it when `hc` is on PATH. A repo's own `adapters.sessionLauncher` overrides it, and `null` turns it off there. `factory-reflect` uses it to hand a fact candidate to its source repo: `lessons.mjs candidate` prints the launch.
+
+- The value names a skill that ships `launcher.json`. It's read from the repo's installed skills first, then from the `launchers` bundle beside core, so no repo has to install it. The file is: `{"argv": [...]}`, where `{repo}` is the source repo's main checkout and `{prompt}` the prompt the new session starts with. The skill's `tools.json` pins the CLI it runs.
+- The new session starts in the source repo, so it writes only its own repo. Starting it is the only cross-repo step.
+- Unset, or a launcher with no `launcher.json` in either place: the candidate prints `cd <repo> && <your agent CLI>` and the prompt, for the user to run.

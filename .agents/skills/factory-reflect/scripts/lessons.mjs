@@ -1,32 +1,46 @@
 #!/usr/bin/env node
-// lessons.mjs: the lesson log and the cross-repo promotion index for factory-reflect.
+// lessons.mjs: the lesson log, the cross-repo index and the candidate queue for factory-reflect.
 //
 //   lessons.mjs record --scope repo|core|org --fingerprint <slug> --summary <text>
 //                      [--destination <path>] [--status applied|proposed] [--source <session|PR>]
-//   lessons.mjs due [--session <id>]         fingerprints ready for the promotion prompt (max 3 a session)
-//   lessons.mjs decide --fingerprint <slug> --decision promote|not-now|never [--session <id>]
-//   lessons.mjs known [--scope core|org]     fingerprints seen before, so a new lesson can reuse one
-//   lessons.mjs target --skill <name>        the source repo to promote an edit of an installed skill into
+//   lessons.mjs decide --fingerprint <slug> --decision never [--summary <text>]
+//                                            a lesson family triage must never land; known lists it
+//   lessons.mjs known [--scope core|org] [--never]   fingerprints seen before, and the never list
+//   lessons.mjs target --skill <name>        the source repo that owns an installed skill
 //   lessons.mjs classify --text <s> | --file <f>   core or org for new content, by the installed
 //                                            skills' internal-data.json patterns
 //   lessons.mjs start --repo <dir> --slug <s> a lesson branch and worktree in that source repo
 //   lessons.mjs open [--repo <dir>,<dir>]     open lesson branches (default: every bundle source repo)
+//   lessons.mjs candidate --kind fact|pattern|harness --scope core|org --summary <text>
+//                      [--skill <name>] [--evidence <json array>] [--draft <patch>] [--fixed-when <json>]
+//                      [--slug <s>] [--session <id>] [--now | --queue]
+//                                            hand a lesson to its source repo; prints the lane and launch
+//   lessons.mjs queue [--scope core|org] [--skill <name>]   queued candidates, their source repo and launch command,
+//                                            and the open lesson branches: what's waiting
+//   lessons.mjs done --file <candidate> --outcome landed|dropped|merged
+//   lessons.mjs cadence [--scope core|org] [--pin daily|weekly|off] [--ran --clusters <largest>]
+//                                            triage's mode per scope (cadence.mjs); triage ends with --ran
+//   lessons.mjs report [--days 90]           the trend report per layer (metrics.mjs), for triage to post
 //   lessons.mjs land --repo <dir> --branch <b> --reviewed <sha>
-//                                            fast-forward trunk to a reviewed branch, then clean up
+//                                            fast-forward trunk to a reviewed branch, then clean up;
+//                                            only from a session started in that repo (wrong-session)
 //
-// start, open, land and classify live in landing.mjs. Exit 1 with {error, message} when one refuses.
+// start, open, land and classify live in landing.mjs; candidate, queue and done in candidates.mjs. Exit 1 with {error, message} when one refuses.
 //
 // Every lesson goes to <stateRoot>/lessons.jsonl. A core or org lesson also goes to
-// ~/.agents/factory/lessons-index.jsonl (or $FACTORY_HOME), which spans every repo. A fingerprint
-// is due when it has 3+ occurrences in the last 90 days, hasn't been promoted or marked never,
-// and, if snoozed ("not now"), has a new occurrence since. Prints JSON. node: imports only.
+// ~/.agents/factory/lessons-index.jsonl (or $FACTORY_HOME), which spans every repo; entries expire
+// after 90 days without a new occurrence. Nothing counts to a threshold: factory-triage clusters the
+// queued candidates, and a cluster's size is the count that matters. Prints JSON. node: imports only.
 import { readFileSync, appendFileSync, writeFileSync, mkdirSync, existsSync, realpathSync, renameSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { homedir } from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { start, open, land, classify, LandingError } from './landing.mjs';
+import { writeCandidate, queue, markDone, sourceRepo, launchFor, triagePrompt, pickLauncher } from './candidates.mjs';
+import { report } from './metrics.mjs';
+import { cadence } from './cadence.mjs';
 
-export const THRESHOLD = 3, EXPIRY_DAYS = 90, PROMPTS_PER_SESSION = 3;
+export const EXPIRY_DAYS = 90;
 const DAY = 86400000;
 
 const home = (env = process.env) => (env.FACTORY_HOME ? resolve(env.FACTORY_HOME) : join(homedir(), '.agents/factory'));
@@ -41,7 +55,7 @@ export function normalizeFingerprint(s) {
   return String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80);
 }
 
-// Counts per fingerprint across the index, honouring expiry and decisions.
+// Occurrences per fingerprint across the index, with expiry and the never list.
 export function summarize(entries, decisions, now = Date.now()) {
   const by = new Map();
   for (const e of entries) {
@@ -56,24 +70,23 @@ export function summarize(entries, decisions, now = Date.now()) {
     const last = Math.max(...s.occurrences);
     const live = s.occurrences.filter((t) => now - t <= EXPIRY_DAYS * DAY);
     const d = decisions.fingerprints?.[s.fingerprint];
-    let due = live.length >= THRESHOLD, reason = due ? 'threshold' : `${live.length}/${THRESHOLD} in ${EXPIRY_DAYS} days`;
-    if (now - last > EXPIRY_DAYS * DAY) { due = false; reason = 'expired'; }
-    if (d?.decision === 'never') { due = false; reason = 'never'; }
-    if (d?.decision === 'promote') { due = false; reason = 'promoted'; }
-    if (d?.decision === 'not-now' && !(last > Date.parse(d.at))) { due = false; reason = 'snoozed until it happens again'; }
+    let reason = `${live.length} in ${EXPIRY_DAYS} days`;
+    if (now - last > EXPIRY_DAYS * DAY) reason = 'expired';
+    if (d?.decision === 'never') reason = 'never';
     out.push({ fingerprint: s.fingerprint, scope: s.scope, summary: s.summary, occurrences: live.length,
-      projects: [...s.projects].filter(Boolean).sort(), lastSeen: new Date(last).toISOString(), due, reason });
+      projects: [...s.projects].filter(Boolean).sort(), lastSeen: new Date(last).toISOString(), reason });
+  }
+  // A never decided in triage for a family no single fingerprint named.
+  for (const [fp, d] of Object.entries(decisions.fingerprints || {})) {
+    if (d?.decision === 'never' && !by.has(fp)) out.push({ fingerprint: fp, scope: d.scope || null, summary: d.summary || fp, occurrences: 0, projects: [], lastSeen: d.at, reason: 'never' });
   }
   return out.sort((a, b) => b.occurrences - a.occurrences || a.fingerprint.localeCompare(b.fingerprint));
 }
 
-export function promptText(s) {
-  const n = s.projects.length;
-  return `We've seen "${s.summary || s.fingerprint}" ${s.occurrences} times across ${n} repo${n === 1 ? '' : 's'} (${s.projects.join(', ')}). Promote it to ${s.scope}? [promote / not now / never]`;
-}
-
+const SKILLS_DIR = dirname(dirname(dirname(realpathSync(import.meta.filename))));
 function context() {
-  const resolver = join(dirname(dirname(dirname(realpathSync(import.meta.filename)))), 'factory-context', 'scripts', 'resolve.mjs');
+  const resolver = join(SKILLS_DIR, 'factory-context', 'scripts', 'resolve.mjs');
+  if (!existsSync(resolver)) return { error: `no resolver at ${resolver}` };
   const r = spawnSync(process.execPath, [resolver], { encoding: 'utf8' });
   if (r.status !== 0) return { error: (r.stderr || '').trim() };
   return JSON.parse(r.stdout);
@@ -83,15 +96,16 @@ function parse(argv) {
   const o = { _: [] };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
-    if (a.startsWith('--')) { const v = argv[i + 1]; if (v == null || v.startsWith('--')) fail(`${a} needs a value`); o[a.slice(2)] = v; i++; }
+    if (a === '--now' || a === '--queue' || a === '--never' || a === '--ran') o[a.slice(2)] = true;
+    else if (a.startsWith('--')) { const v = argv[i + 1]; if (v == null || v.startsWith('--')) fail(`${a} needs a value`); o[a.slice(2)] = v; i++; }
     else o._.push(a);
   }
   return o;
 }
 
 export function run(cmd, o, env = process.env, now = Date.now()) {
-  const decisions = readJson(decisionsFile(env), { fingerprints: {}, sessions: {} });
-  decisions.fingerprints ||= {}; decisions.sessions ||= {};
+  const decisions = readJson(decisionsFile(env), { fingerprints: {} });
+  decisions.fingerprints ||= {};
   if (cmd === 'record') {
     if (!['repo', 'core', 'org'].includes(o.scope)) fail('--scope must be repo, core or org');
     const fp = normalizeFingerprint(o.fingerprint);
@@ -109,27 +123,19 @@ export function run(cmd, o, env = process.env, now = Date.now()) {
     mkdirSync(home(env), { recursive: true });
     appendFileSync(indexFile(env), JSON.stringify(entry) + '\n');
     const s = summarize(readJsonl(indexFile(env)), decisions, now).find((x) => x.fingerprint === fp);
-    return { recorded: local, index: indexFile(env), ...s };
-  }
-  if (cmd === 'due') {
-    const session = o.session || 'default';
-    const used = decisions.sessions[session] || 0;
-    const left = Math.max(0, PROMPTS_PER_SESSION - used);
-    const due = summarize(readJsonl(indexFile(env)), decisions, now).filter((s) => s.due).slice(0, left);
-    return { session, promptsLeft: left, due: due.map((s) => ({ ...s, prompt: promptText(s) })) };
+    return { recorded: local, index: indexFile(env), ...s, ...(s.reason === 'never' ? { note: 'marked never: drop it, or ask the user before handing it upstream' } : {}) };
   }
   if (cmd === 'decide') {
     const fp = normalizeFingerprint(o.fingerprint);
-    if (!['promote', 'not-now', 'never'].includes(o.decision)) fail('--decision must be promote, not-now or never');
-    decisions.fingerprints[fp] = { decision: o.decision, at: new Date(now).toISOString() };
-    const session = o.session || 'default';
-    decisions.sessions[session] = (decisions.sessions[session] || 0) + 1;
+    if (!fp) fail('--fingerprint is required');
+    if (o.decision !== 'never') fail('--decision must be never (triage decides the rest; a cluster\'s size is the count)');
+    decisions.fingerprints[fp] = { decision: 'never', at: new Date(now).toISOString(), ...(o.summary ? { summary: o.summary } : {}), ...(o.scope ? { scope: o.scope } : {}) };
     writeJson(decisionsFile(env), decisions);
-    return { fingerprint: fp, decision: o.decision };
+    return { fingerprint: fp, decision: 'never' };
   }
   if (cmd === 'known') {
     return summarize(readJsonl(indexFile(env)), decisions, now)
-      .filter((s) => !o.scope || s.scope === o.scope)
+      .filter((s) => (!o.scope || s.scope === o.scope) && (!o.never || s.reason === 'never'))
       .map(({ fingerprint, scope, summary, occurrences, reason }) => ({ fingerprint, scope, summary, occurrences, reason }));
   }
   if (cmd === 'target') {
@@ -145,10 +151,10 @@ export function run(cmd, o, env = process.env, now = Date.now()) {
     // Bundle source paths are machine-specific, so factory keeps them in ~/.agents/factory/installs.json.
     const bundleDir = readJson(join(home(env), 'installs.json'), {}).sources?.[s.bundle];
     const sourceDir = bundleDir && join(bundleDir, o.skill);
-    if (!sourceDir || !existsSync(sourceDir)) return { skill: o.skill, installed: true, bundle: s.bundle, note: `the ${s.bundle} bundle's source isn't on this machine; record the lesson and promote it where that bundle lives` };
+    if (!sourceDir || !existsSync(sourceDir)) return { skill: o.skill, installed: true, bundle: s.bundle, note: `the ${s.bundle} bundle's source isn't on this machine; record the lesson and hand it over where that bundle lives` };
     const top = spawnSync('git', ['rev-parse', '--show-toplevel'], { cwd: sourceDir, encoding: 'utf8' }).stdout.trim();
     return { skill: o.skill, installed: true, bundle: s.bundle, sourceDir, repo: top || null,
-      next: 'edit the skill there on a local branch lesson/<fingerprint>, commit, have the user review it, then run factory update --all' };
+      next: 'a session started in that repo edits the skill on a lesson branch, reviews and lands it; consumers pull the change at their next session start' };
   }
   if (cmd === 'start') return start({ repo: o.repo || process.cwd(), slug: o.slug, date: o.date, trunk: o.trunk, home: home(env) });
   if (cmd === 'open') {
@@ -156,11 +162,57 @@ export function run(cmd, o, env = process.env, now = Date.now()) {
     return { branches: open({ repos }) };
   }
   if (cmd === 'land') return land({ repo: o.repo || process.cwd(), branch: o.branch, reviewed: o.reviewed, trunk: o.trunk });
+  if (cmd === 'candidate') {
+    const json = (k) => { if (o[k] === undefined) return undefined; try { return JSON.parse(o[k]); } catch { throw new LandingError('usage', `--${k} is not valid JSON`); } };
+    const ctx = o.project ? { project: { name: o.project, root: o.root }, adapters: {} } : context();
+    if (ctx.error) fail(ctx.error);
+    const from = { project: ctx.project?.name, root: ctx.project?.root, ...(o.session ? { session: o.session } : {}) };
+    const w = writeCandidate({ home: home(env), kind: o.kind, scope: o.scope, skill: o.skill, summary: o.summary, evidence: json('evidence') ?? [],
+      draft: o.draft, fixedWhen: json('fixed-when'), from, slug: o.slug, now: o.now, queue: o.queue, at: now });
+    const sources = readJson(join(home(env), 'installs.json'), {}).sources || {};
+    const repo = sourceRepo(o.scope, sources);
+    const out = { file: w.file, lane: w.lane, kind: w.candidate.kind, scope: w.candidate.scope, repo };
+    if (!repo) return { ...out, note: `the ${o.scope} source repo isn't on this machine; the candidate waits until a session there runs factory-triage` };
+    const prompt = triagePrompt(repo, w.file, sources);
+    if (from.root && repo === from.root) return { ...out, home: true, next: `you are in the source repo: ${prompt}` };
+    // Fast lane: start the source repo's session now. Queue: the status hook there names it.
+    if (w.lane === 'now') {
+      const launcher = pickLauncher(ctx.adapters, readJson(join(home(env), 'config.json'), {}));
+      const bundle = sources.core && join(dirname(sources.core), 'launchers');
+      return { ...out, launch: launchFor({ launcher, skillsDirs: [o['skills-dir'] || SKILLS_DIR, bundle], repo, prompt }) };
+    }
+    return { ...out, next: `queued: the next factory-triage session in ${repo} takes it` };
+  }
+  if (cmd === 'queue') {
+    const sources = readJson(join(home(env), 'installs.json'), {}).sources || {};
+    const scopes = o.scope ? [o.scope] : ['core', 'org'];
+    const repos = scopes.map((sc) => {
+      const items = queue(home(env), sc, now).filter((c) => !o.skill || c.skill === o.skill);
+      const repo = sourceRepo(sc, sources);
+      return { scope: sc, repo, queued: items.length, oldestDays: items.length ? Math.max(...items.map((c) => c.ageDays)) : null,
+        candidates: items.map(({ file, kind, skill, summary, lane, ageDays }) => ({ file, kind, skill, summary, lane, ageDays })),
+        ...(repo && items.length ? { start: `cd ${repo} && <your agent CLI>`, prompt: triagePrompt(repo, '', sources) } : {}) };
+    });
+    const branches = open({ repos: Object.values(sources) }).map(({ repo, branch, commits, worktree }) => ({ repo, branch, commits: commits.length, worktree }));
+    return { repos, branches };
+  }
+  if (cmd === 'done') {
+    if (!['landed', 'dropped', 'merged'].includes(o.outcome)) fail('--outcome must be landed, dropped or merged');
+    if (!o.file) fail('--file is required');
+    return markDone(home(env), o.file, o.outcome, now);
+  }
+  if (cmd === 'cadence') {
+    if (o.scope && !['core', 'org'].includes(o.scope)) fail('--scope must be core or org');
+    try {
+      return { scopes: (o.scope ? [o.scope] : ['core', 'org']).map((scope) => cadence({ home: home(env), scope, pin: o.pin, ran: o.ran, clusterMax: o.clusters, env, now })) };
+    } catch (e) { fail(e.message); }
+  }
+  if (cmd === 'report') return report({ days: o.days ? Number(o.days) : 90, out: o.out }, env, now);
   if (cmd === 'classify') {
     if (o.text === undefined && !o.file) fail('classify needs --text or --file');
     return classify({ text: o.text ?? readFileSync(o.file, 'utf8'), skillsDir: o['skills-dir'] });
   }
-  fail('usage: lessons.mjs record|due|decide|known|target|start|open|land|classify (see the header of this file)');
+  fail('usage: lessons.mjs record|decide|known|target|candidate|queue|done|cadence|report|start|open|land|classify (see the header of this file)');
 }
 
 if (process.argv[1] && realpathSync(process.argv[1]) === realpathSync(import.meta.filename)) {
