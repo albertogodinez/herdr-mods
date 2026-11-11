@@ -150,8 +150,8 @@
       "sourceType": "local",
       "bundle": "core",
       "skillPath": "bundles/core/factory-dev-slot/SKILL.md",
-      "sourceRev": "9dcbe2c",
-      "computedHash": "c3009a06fa9fbf4fcabc7e1879ae8c00bb55028a1506b164233341e304fe5fa8"
+      "sourceRev": "4ce6495",
+      "computedHash": "2b672fa590a32ef2b3a91af82329f18c1b3b7e3e860893217d87e8584cf3515e"
     },
     "factory-docs-validate": {
       "source": "factory-core",
