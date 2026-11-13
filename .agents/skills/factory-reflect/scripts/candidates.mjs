@@ -1,8 +1,9 @@
 // candidates.mjs: the handoff from a downstream session to the source repo that owns a lesson.
 // lessons.mjs is the CLI; these are its candidate and queue commands.
 //
-// A candidate is one JSON file at <home>/candidates/<core|org>/<ts>-<slug>.json, machine-local and
-// untracked. It points at evidence; it never carries pasted transcript content. Its kind sets the
+// A candidate is one JSON file at <home>/candidates/<core|org|repo>/<ts>-<slug>.json, machine-local and
+// untracked. A repo candidate is a lesson for the repo the session ran in; its `repo` field (that repo's
+// main checkout) owns it, and a triage session there lands it. It points at evidence; it never carries pasted transcript content. Its kind sets the
 // lane: a fact is wrong today, so it launches a session in the source repo now; a pattern or a
 // harness lesson waits in the queue for triage, which batches it with its family. The queue is the
 // files still in the folder; triage moves each one to done/ when it lands or is dropped.
@@ -12,7 +13,7 @@ import { spawnSync } from 'node:child_process';
 import { LandingError, slugify } from './landing.mjs';
 
 export const KINDS = ['fact', 'pattern', 'harness'];
-export const SCOPES = ['core', 'org'];
+export const SCOPES = ['core', 'org', 'repo'];
 export const DONE_DAYS = 90;
 const EVIDENCE_KEYS = ['transcript', 'grep', 'pr', 'thread', 'commit', 'file', 'line', 'url', 'note'];
 const DAY = 86400000;
@@ -42,9 +43,10 @@ export function checkEvidence(list) {
 const dirOf = (home, scope) => join(home, 'candidates', scope);
 const stamp = (t) => new Date(t).toISOString().replace(/[-:]/g, '').replace(/\.\d+Z$/, 'Z');
 
-export function writeCandidate({ home, kind, scope, skill, summary, evidence = [], draft, fixedWhen, from = {}, slug, now: nowFlag, queue, at = Date.now() }) {
+export function writeCandidate({ home, kind, scope, skill, summary, evidence = [], draft, fixedWhen, from = {}, repo, slug, now: nowFlag, queue, at = Date.now() }) {
   if (!KINDS.includes(kind)) throw new LandingError('usage', `--kind must be ${KINDS.join(', ')}`);
-  if (!SCOPES.includes(scope)) throw new LandingError('usage', '--scope must be core or org (a repo-scope lesson stays in its PR)');
+  if (!SCOPES.includes(scope)) throw new LandingError('usage', `--scope must be ${SCOPES.join(', ')}`);
+  if (scope === 'repo' && !repo) throw new LandingError('usage', 'a repo candidate needs the repo that owns it (run it inside that repo)');
   if (!summary) throw new LandingError('usage', '--summary is required');
   const problem = checkEvidence(evidence);
   if (problem) throw new LandingError('bad-evidence', problem);
@@ -59,15 +61,15 @@ export function writeCandidate({ home, kind, scope, skill, summary, evidence = [
     copyFileSync(draft, join(dir, `${name}.patch`));
     draftRel = `candidates/${scope}/${name}.patch`;
   }
-  const candidate = { kind, scope, ...(skill ? { skill } : {}), summary, evidence, ...(draftRel ? { draft: draftRel } : {}),
+  const candidate = { kind, scope, ...(scope === 'repo' ? { repo } : {}), ...(skill ? { skill } : {}), summary, evidence, ...(draftRel ? { draft: draftRel } : {}),
     ...(fixedWhen ? { fixedWhen } : {}), from, lane, at: new Date(at).toISOString() };
   const file = join(dir, `${name}.json`);
   writeFileSync(file, JSON.stringify(candidate, null, 2) + '\n');
   return { file, lane, candidate };
 }
 
-// The queue: candidates not yet done, oldest first, optionally for one scope.
-export function queue(home, scope, at = Date.now()) {
+// The queue: candidates not yet done, oldest first, optionally for one scope (and, for repo, one repo).
+export function queue(home, scope, at = Date.now(), repo) {
   const out = [];
   for (const s of scope ? [scope] : SCOPES) {
     let names = [];
@@ -76,20 +78,22 @@ export function queue(home, scope, at = Date.now()) {
       const file = join(dirOf(home, s), n);
       let c;
       try { c = JSON.parse(readFileSync(file, 'utf8')); } catch { continue; }
+      if (repo && c.repo !== repo) continue;
       out.push({ file, ...c, ageDays: Math.floor((at - (Date.parse(c.at) || at)) / DAY) });
     }
   }
   return out.sort((a, b) => String(a.at).localeCompare(String(b.at)));
 }
 
-// Triage moves a candidate (and its draft) to done/ with what happened to it, and prunes done/.
-export function markDone(home, file, outcome, at = Date.now()) {
+// Triage moves a candidate (and its draft) to done/ with what happened to it, and prunes done/. A landed
+// one records the commit that carried it, so the report can split sessions by revision.
+export function markDone(home, file, outcome, at = Date.now(), commit) {
   if (!existsSync(file)) throw new LandingError('usage', `${file} is not a queued candidate`);
   const c = JSON.parse(readFileSync(file, 'utf8'));
   const done = join(dirname(file), 'done');
   mkdirSync(done, { recursive: true });
   const target = join(done, basename(file));
-  writeFileSync(target, JSON.stringify({ ...c, done: { outcome, at: new Date(at).toISOString() } }, null, 2) + '\n');
+  writeFileSync(target, JSON.stringify({ ...c, done: { outcome, at: new Date(at).toISOString(), ...(commit ? { commit } : {}) } }, null, 2) + '\n');
   rmSync(file);
   const patch = file.replace(/\.json$/, '.patch');
   if (existsSync(patch)) renameSync(patch, join(done, basename(patch)));
@@ -107,7 +111,13 @@ export function prune(done, at = Date.now()) {
   return removed;
 }
 
+// The repos with repo candidates queued, for the status hook and the schedule.
+export function repoOwners(home) {
+  return [...new Set(queue(home, 'repo').map((c) => c.repo).filter(Boolean))].sort();
+}
+
 // The source repo a scope's lessons land in: core's bundle repo, or the first other repo holding bundles.
+// A repo lesson lands in its own repo, which the candidate names.
 export function sourceRepo(scope, sources) {
   const rootOf = (d) => {
     if (!d || !existsSync(d)) return null;
@@ -126,12 +136,43 @@ export function sourceRepo(scope, sources) {
   return null;
 }
 
-// The prompt that starts triage in the source repo: the slash command where factory-triage is
-// installed, else the bundle's SKILL.md by path (a bundle's own repo doesn't install it).
-export function triagePrompt(repo, target, sources = {}) {
-  if (existsSync(join(repo, '.agents', 'skills', 'factory-triage', 'SKILL.md'))) return `/factory-triage ${target}`.trim();
-  const md = sources.core && join(sources.core, 'factory-triage', 'SKILL.md');
-  return md && existsSync(md) ? `Read ${md} and follow it${target ? ` for ${target}` : ''}.` : `/factory-triage ${target}`.trim();
+// The agent CLIs a launcher can start, and how each is told to run a skill. adapters.agentCLI (repo or
+// machine config) names one; the machine config's `agents` map adds one or overrides a built-in.
+// {skill} is the skill's name, {skillPath} its SKILL.md, {target} what it runs on, and {forTarget}
+// " for <target>" or nothing.
+export const AGENT_CLIS = {
+  claude: { bin: 'claude', skill: '/{skill} {target}' },
+  codex: { bin: 'codex', skill: 'Read {skillPath} and follow it{forTarget}.' },
+};
+const BY_PATH = 'Read {skillPath} and follow it{forTarget}.';
+
+// The agent a session runs in, from the marker each one leaves in its commands' environment.
+export function sessionAgent(env = process.env) {
+  if (env.CLAUDECODE) return 'claude';
+  if (env.CODEX_THREAD_ID) return 'codex';
+  return null;
+}
+
+// Which agent a launch opens, first match wins: the repo's adapters.agentCLI, the agent of the session
+// doing the handoff, the machine's adapters.agentCLI, then claude. A scheduled job has no session, so
+// it lands on the machine's.
+export function pickAgent(machine = {}, { repoAdapters = {}, env = {} } = {}) {
+  const from = repoAdapters?.agentCLI ? 'repo' : sessionAgent(env) ? 'session' : machine?.adapters?.agentCLI ? 'machine' : 'default';
+  const name = { repo: repoAdapters?.agentCLI, session: sessionAgent(env), machine: machine?.adapters?.agentCLI, default: 'claude' }[from];
+  const a = { ...AGENT_CLIS, ...(machine?.agents || {}) }[name];
+  return { name, bin: a?.bin || name, skill: a?.skill || BY_PATH, from, configured: from !== 'default' };
+}
+
+// The prompt that starts triage in the source repo, in the agent's own way of running a skill. A skill
+// the repo doesn't install (a bundle repo, where core isn't installed) can only be reached by path.
+export function triagePrompt(repo, target, sources = {}, agent = AGENT_CLIS.claude) {
+  const installed = join(repo, '.agents', 'skills', 'factory-triage', 'SKILL.md');
+  const bundled = sources.core && join(sources.core, 'factory-triage', 'SKILL.md');
+  const path = existsSync(installed) ? installed : (bundled && existsSync(bundled) ? bundled : null);
+  let t = path === installed ? agent.skill : path ? BY_PATH : agent.skill;
+  if (!path && t.includes('{skillPath}')) t = 'Use the {skill} skill{forTarget}.';
+  return t.replaceAll('{skill}', 'factory-triage').replaceAll('{skillPath}', path || '').replaceAll('{target}', target || '')
+    .replaceAll('{forTarget}', target ? ` for ${target}` : '').trim();
 }
 
 const sh = (s) => (/^[\w@%+=:,./-]+$/.test(s) ? s : `'${String(s).replace(/'/g, `'\\''`)}'`);
@@ -146,14 +187,14 @@ export function pickLauncher(repoAdapters = {}, machine = {}) {
 // How to start the source repo's session: the launcher's argv, read from the first of `skillsDirs`
 // holding <launcher>/launcher.json (the repo's installed skills, then the launchers bundle itself, so
 // no repo has to install it), else a command for the user to run (with ! in their own session).
-export function launchFor({ launcher, skillsDir, skillsDirs = [skillsDir], repo, prompt }) {
-  const manual = { via: 'print', command: `cd ${sh(repo)} && <your agent CLI>`, prompt };
+export function launchFor({ launcher, skillsDir, skillsDirs = [skillsDir], repo, prompt, agent = AGENT_CLIS.claude }) {
+  const manual = { via: 'print', command: `cd ${sh(repo)} && ${agent.configured ? agent.bin : '<your agent CLI>'}`, prompt };
   if (!launcher) return manual;
   const files = skillsDirs.filter(Boolean).map((d) => join(d, launcher, 'launcher.json'));
   let spec, f;
   for (const c of files) { try { spec = JSON.parse(readFileSync(c, 'utf8')); f = c; break; } catch {} }
   if (!spec) return { ...manual, note: `sessionLauncher is ${launcher}, but no valid launcher.json in ${files.join(', ')}` };
   if (!Array.isArray(spec.argv) || !spec.argv.length) return { ...manual, note: `${f} needs an "argv" array` };
-  const argv = spec.argv.map((a) => String(a).replaceAll('{repo}', repo).replaceAll('{prompt}', prompt));
+  const argv = spec.argv.map((a) => String(a).replaceAll('{repo}', repo).replaceAll('{agent}', agent.bin).replaceAll('{prompt}', prompt));
   return { via: launcher, argv, command: argv.map(sh).join(' '), prompt };
 }

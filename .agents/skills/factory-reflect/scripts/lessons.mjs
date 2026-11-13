@@ -2,7 +2,9 @@
 // lessons.mjs: the lesson log, the cross-repo index and the candidate queue for factory-reflect.
 //
 //   lessons.mjs record --scope repo|core|org --fingerprint <slug> --summary <text>
-//                      [--destination <path>] [--status applied|proposed] [--source <session|PR>]
+//                      [--destination <path>] [--status applied|proposed|queued|dropped] [--source <session|PR>]
+//   lessons.mjs pending [--root <dir>]       repo lessons still proposed here (the newest record per
+//                                            fingerprint says proposed); record applied or dropped to clear one
 //   lessons.mjs decide --fingerprint <slug> --decision never [--summary <text>]
 //                                            a lesson family triage must never land; known lists it
 //   lessons.mjs known [--scope core|org] [--never]   fingerprints seen before, and the never list
@@ -11,14 +13,16 @@
 //                                            skills' internal-data.json patterns
 //   lessons.mjs start --repo <dir> --slug <s> a lesson branch and worktree in that source repo
 //   lessons.mjs open [--repo <dir>,<dir>]     open lesson branches (default: every bundle source repo)
-//   lessons.mjs candidate --kind fact|pattern|harness --scope core|org --summary <text>
+//   lessons.mjs candidate --kind fact|pattern|harness --scope core|org|repo --summary <text>
 //                      [--skill <name>] [--evidence <json array>] [--draft <patch>] [--fixed-when <json>]
 //                      [--slug <s>] [--session <id>] [--now | --queue]
-//                                            hand a lesson to its source repo; prints the lane and launch
-//   lessons.mjs queue [--scope core|org] [--skill <name>]   queued candidates, their source repo and launch command,
+//                                            hand a lesson to the repo that owns it (repo: this one);
+//                                            prints the lane and launch
+//   lessons.mjs queue [--scope core|org|repo] [--skill <name>] [--repo <dir>]
+//                                            queued candidates, their owner repo and launch command,
 //                                            and the open lesson branches: what's waiting
-//   lessons.mjs done --file <candidate> --outcome landed|dropped|merged
-//   lessons.mjs cadence [--scope core|org] [--pin daily|weekly|off] [--ran --clusters <largest>]
+//   lessons.mjs done --file <candidate> --outcome landed|dropped|merged [--commit <sha>]
+//   lessons.mjs cadence [--scope core|org|repo [--repo <dir>]] [--pin daily|weekly|off] [--ran --clusters <largest>]
 //                                            triage's mode per scope (cadence.mjs); triage ends with --ran
 //   lessons.mjs report [--days 90]           the trend report per layer (metrics.mjs), for triage to post
 //   lessons.mjs land --repo <dir> --branch <b> --reviewed <sha>
@@ -29,14 +33,15 @@
 //
 // Every lesson goes to <stateRoot>/lessons.jsonl. A core or org lesson also goes to
 // ~/.agents/factory/lessons-index.jsonl (or $FACTORY_HOME), which spans every repo; entries expire
-// after 90 days without a new occurrence. Nothing counts to a threshold: factory-triage clusters the
+// after 90 days without a new occurrence. A repo lesson also goes to ~/.agents/factory/repo-lessons.jsonl,
+// keyed by its repo root, so the status hook can name the ones still proposed without the resolver. Nothing counts to a threshold: factory-triage clusters the
 // queued candidates, and a cluster's size is the count that matters. Prints JSON. node: imports only.
 import { readFileSync, appendFileSync, writeFileSync, mkdirSync, existsSync, realpathSync, renameSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { homedir } from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { start, open, land, classify, LandingError } from './landing.mjs';
-import { writeCandidate, queue, markDone, sourceRepo, launchFor, triagePrompt, pickLauncher } from './candidates.mjs';
+import { writeCandidate, queue, markDone, sourceRepo, repoOwners, launchFor, triagePrompt, pickLauncher, pickAgent, sessionAgent } from './candidates.mjs';
 import { report } from './metrics.mjs';
 import { cadence } from './cadence.mjs';
 
@@ -46,6 +51,21 @@ const DAY = 86400000;
 const home = (env = process.env) => (env.FACTORY_HOME ? resolve(env.FACTORY_HOME) : join(homedir(), '.agents/factory'));
 const indexFile = (env) => join(home(env), 'lessons-index.jsonl');
 const decisionsFile = (env) => join(home(env), 'lessons-decisions.json');
+const repoLessonsFile = (env) => join(home(env), 'repo-lessons.jsonl');
+export const STATUSES = ['applied', 'proposed', 'queued', 'dropped'];
+
+// Repo lessons still proposed in a repo: the newest record per fingerprint, within the expiry.
+export function pendingRepoLessons(entries, roots, now = Date.now()) {
+  const latest = new Map();
+  for (const e of entries) {
+    if (!(roots.includes(e.root) || roots.includes(e.main)) || !Number.isFinite(Date.parse(e.ts))) continue;
+    const prev = latest.get(e.fingerprint);
+    if (!prev || Date.parse(e.ts) >= Date.parse(prev.ts)) latest.set(e.fingerprint, { ...e, first: prev?.first || e.ts });
+  }
+  return [...latest.values()].filter((e) => e.status === 'proposed' && now - Date.parse(e.ts) <= EXPIRY_DAYS * DAY)
+    .map(({ fingerprint, summary, destination, first, ts }) => ({ fingerprint, summary, destination, since: first, lastSeen: ts }))
+    .sort((a, b) => a.since.localeCompare(b.since));
+}
 const readJsonl = (f) => (existsSync(f) ? readFileSync(f, 'utf8').split('\n').filter(Boolean).map((l) => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean) : []);
 const readJson = (f, d) => { try { return JSON.parse(readFileSync(f, 'utf8')); } catch { return d; } };
 function writeJson(f, v) { mkdirSync(dirname(f), { recursive: true }); const t = `${f}.${process.pid}`; writeFileSync(t, JSON.stringify(v, null, 2) + '\n'); renameSync(t, f); }
@@ -92,6 +112,14 @@ function context() {
   return JSON.parse(r.stdout);
 }
 
+// The main checkout of a repo or worktree, so a lesson recorded in one worktree shows in the others.
+function mainOf(dir) {
+  if (!dir) return null;
+  const r = spawnSync('git', ['-C', dir, 'rev-parse', '--path-format=absolute', '--git-common-dir'], { encoding: 'utf8' });
+  const common = r.status === 0 ? r.stdout.trim() : '';
+  return common.endsWith('/.git') ? dirname(common) : (common ? dir : null);
+}
+
 function parse(argv) {
   const o = { _: [] };
   for (let i = 0; i < argv.length; i++) {
@@ -111,6 +139,7 @@ export function run(cmd, o, env = process.env, now = Date.now()) {
     const fp = normalizeFingerprint(o.fingerprint);
     if (!fp) fail('--fingerprint is required');
     if (!o.summary) fail('--summary is required');
+    if (o.status && !STATUSES.includes(o.status)) fail(`--status must be ${STATUSES.join(', ')}`);
     const ctx = o.project ? { project: { name: o.project, root: o.root }, stateRoot: o['state-root'] } : context();
     if (ctx.error) fail(ctx.error);
     const entry = { ts: new Date(now).toISOString(), fingerprint: fp, scope: o.scope, summary: o.summary,
@@ -119,7 +148,16 @@ export function run(cmd, o, env = process.env, now = Date.now()) {
     const local = join(ctx.stateRoot, 'lessons.jsonl');
     mkdirSync(dirname(local), { recursive: true });
     appendFileSync(local, JSON.stringify(entry) + '\n');
-    if (o.scope === 'repo') return { recorded: local, fingerprint: fp, scope: 'repo' };
+    if (o.scope === 'repo') {
+      mkdirSync(home(env), { recursive: true });
+      const shared = repoLessonsFile(env);
+      entry.main = mainOf(entry.root);
+      // Keep the shared file small: drop lines past the expiry when appending.
+      const kept = readJsonl(shared).filter((e) => now - Date.parse(e.ts) <= EXPIRY_DAYS * DAY);
+      writeFileSync(shared, [...kept, entry].map((e) => JSON.stringify(e)).join('\n') + '\n');
+      return { recorded: local, fingerprint: fp, scope: 'repo', status: entry.status,
+        pending: pendingRepoLessons([...kept, entry], [entry.root, entry.main].filter(Boolean), now).length };
+    }
     mkdirSync(home(env), { recursive: true });
     appendFileSync(indexFile(env), JSON.stringify(entry) + '\n');
     const s = summarize(readJsonl(indexFile(env)), decisions, now).find((x) => x.fingerprint === fp);
@@ -132,6 +170,11 @@ export function run(cmd, o, env = process.env, now = Date.now()) {
     decisions.fingerprints[fp] = { decision: 'never', at: new Date(now).toISOString(), ...(o.summary ? { summary: o.summary } : {}), ...(o.scope ? { scope: o.scope } : {}) };
     writeJson(decisionsFile(env), decisions);
     return { fingerprint: fp, decision: 'never' };
+  }
+  if (cmd === 'pending') {
+    let root = o.root && resolve(o.root);
+    if (!root) { const ctx = context(); if (ctx.error) fail(ctx.error); root = ctx.project?.root; }
+    return { root, pending: pendingRepoLessons(readJsonl(repoLessonsFile(env)), [root, mainOf(root)].filter(Boolean), now) };
   }
   if (cmd === 'known') {
     return summarize(readJsonl(indexFile(env)), decisions, now)
@@ -166,32 +209,40 @@ export function run(cmd, o, env = process.env, now = Date.now()) {
     const json = (k) => { if (o[k] === undefined) return undefined; try { return JSON.parse(o[k]); } catch { throw new LandingError('usage', `--${k} is not valid JSON`); } };
     const ctx = o.project ? { project: { name: o.project, root: o.root }, adapters: {} } : context();
     if (ctx.error) fail(ctx.error);
-    const from = { project: ctx.project?.name, root: ctx.project?.root, ...(o.session ? { session: o.session } : {}) };
+    const from = { project: ctx.project?.name, root: ctx.project?.root, ...(o.session ? { session: o.session } : {}), ...(sessionAgent(env) ? { agent: sessionAgent(env) } : {}) };
+    const own = o.scope === 'repo' ? mainOf(from.root) : undefined;
     const w = writeCandidate({ home: home(env), kind: o.kind, scope: o.scope, skill: o.skill, summary: o.summary, evidence: json('evidence') ?? [],
-      draft: o.draft, fixedWhen: json('fixed-when'), from, slug: o.slug, now: o.now, queue: o.queue, at: now });
+      draft: o.draft, fixedWhen: json('fixed-when'), from, repo: own, slug: o.slug, now: o.now, queue: o.queue, at: now });
     const sources = readJson(join(home(env), 'installs.json'), {}).sources || {};
-    const repo = sourceRepo(o.scope, sources);
+    const repo = o.scope === 'repo' ? own : sourceRepo(o.scope, sources);
     const out = { file: w.file, lane: w.lane, kind: w.candidate.kind, scope: w.candidate.scope, repo };
     if (!repo) return { ...out, note: `the ${o.scope} source repo isn't on this machine; the candidate waits until a session there runs factory-triage` };
-    const prompt = triagePrompt(repo, w.file, sources);
-    if (from.root && repo === from.root) return { ...out, home: true, next: `you are in the source repo: ${prompt}` };
+    const machine = readJson(join(home(env), 'config.json'), {});
+    const agent = pickAgent(machine, { repoAdapters: readJson(join(repo, '.agents/factory-metadata', 'project.json'), {}).adapters, env });
+    const prompt = triagePrompt(repo, w.file, sources, agent);
+    if (from.root && (repo === from.root || repo === mainOf(from.root))) {
+      return { ...out, home: true, next: w.lane === 'now' ? `you are in the owner repo: ${prompt}` : `queued here: a factory-triage session in this repo takes it when its queue is due` };
+    }
     // Fast lane: start the source repo's session now. Queue: the status hook there names it.
     if (w.lane === 'now') {
-      const launcher = pickLauncher(ctx.adapters, readJson(join(home(env), 'config.json'), {}));
+      const launcher = pickLauncher(ctx.adapters, machine);
       const bundle = sources.core && join(dirname(sources.core), 'launchers');
-      return { ...out, launch: launchFor({ launcher, skillsDirs: [o['skills-dir'] || SKILLS_DIR, bundle], repo, prompt }) };
+      return { ...out, launch: launchFor({ launcher, skillsDirs: [o['skills-dir'] || SKILLS_DIR, bundle], repo, prompt, agent }) };
     }
     return { ...out, next: `queued: the next factory-triage session in ${repo} takes it` };
   }
   if (cmd === 'queue') {
     const sources = readJson(join(home(env), 'installs.json'), {}).sources || {};
-    const scopes = o.scope ? [o.scope] : ['core', 'org'];
-    const repos = scopes.map((sc) => {
-      const items = queue(home(env), sc, now).filter((c) => !o.skill || c.skill === o.skill);
-      const repo = sourceRepo(sc, sources);
+    const scopes = o.scope ? [o.scope] : ['core', 'org', 'repo'];
+    const machine = readJson(join(home(env), 'config.json'), {});
+    const owners = scopes.flatMap((sc) => (sc === 'repo' ? (o.repo ? [mainOf(resolve(o.repo))] : repoOwners(home(env))).map((r) => [sc, r]) : [[sc, null]]));
+    const repos = owners.map(([sc, own]) => {
+      const items = queue(home(env), sc, now, own || undefined).filter((c) => !o.skill || c.skill === o.skill);
+      const repo = own || sourceRepo(sc, sources);
+      const agent = pickAgent(machine, { repoAdapters: repo && readJson(join(repo, '.agents/factory-metadata', 'project.json'), {}).adapters, env });
       return { scope: sc, repo, queued: items.length, oldestDays: items.length ? Math.max(...items.map((c) => c.ageDays)) : null,
         candidates: items.map(({ file, kind, skill, summary, lane, ageDays }) => ({ file, kind, skill, summary, lane, ageDays })),
-        ...(repo && items.length ? { start: `cd ${repo} && <your agent CLI>`, prompt: triagePrompt(repo, '', sources) } : {}) };
+        ...(repo && items.length ? { start: `cd ${repo} && ${agent.configured ? agent.bin : '<your agent CLI>'}`, prompt: triagePrompt(repo, '', sources, agent) } : {}) };
     });
     const branches = open({ repos: Object.values(sources) }).map(({ repo, branch, commits, worktree }) => ({ repo, branch, commits: commits.length, worktree }));
     return { repos, branches };
@@ -199,12 +250,14 @@ export function run(cmd, o, env = process.env, now = Date.now()) {
   if (cmd === 'done') {
     if (!['landed', 'dropped', 'merged'].includes(o.outcome)) fail('--outcome must be landed, dropped or merged');
     if (!o.file) fail('--file is required');
-    return markDone(home(env), o.file, o.outcome, now);
+    if (o.commit && !/^[0-9a-f]{7,40}$/.test(o.commit)) fail('--commit must be a commit id');
+    return markDone(home(env), o.file, o.outcome, now, o.commit);
   }
   if (cmd === 'cadence') {
-    if (o.scope && !['core', 'org'].includes(o.scope)) fail('--scope must be core or org');
+    if (o.scope && !['core', 'org', 'repo'].includes(o.scope)) fail('--scope must be core, org or repo');
+    const repo = o.scope === 'repo' ? mainOf(resolve(o.repo || process.cwd())) : undefined;
     try {
-      return { scopes: (o.scope ? [o.scope] : ['core', 'org']).map((scope) => cadence({ home: home(env), scope, pin: o.pin, ran: o.ran, clusterMax: o.clusters, env, now })) };
+      return { scopes: (o.scope ? [o.scope] : ['core', 'org']).map((scope) => cadence({ home: home(env), scope, repo, pin: o.pin, ran: o.ran, clusterMax: o.clusters, env, now })) };
     } catch (e) { fail(e.message); }
   }
   if (cmd === 'report') return report({ days: o.days ? Number(o.days) : 90, out: o.out }, env, now);
@@ -212,7 +265,7 @@ export function run(cmd, o, env = process.env, now = Date.now()) {
     if (o.text === undefined && !o.file) fail('classify needs --text or --file');
     return classify({ text: o.text ?? readFileSync(o.file, 'utf8'), skillsDir: o['skills-dir'] });
   }
-  fail('usage: lessons.mjs record|decide|known|target|candidate|queue|done|cadence|report|start|open|land|classify (see the header of this file)');
+  fail('usage: lessons.mjs record|pending|decide|known|target|candidate|queue|done|cadence|report|start|open|land|classify (see the header of this file)');
 }
 
 if (process.argv[1] && realpathSync(process.argv[1]) === realpathSync(import.meta.filename)) {
