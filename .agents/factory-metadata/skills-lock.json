@@ -310,8 +310,8 @@
       "sourceType": "local",
       "bundle": "core",
       "skillPath": "bundles/core/factory-teardown/SKILL.md",
-      "sourceRev": "ac55d7b",
-      "computedHash": "b0621f1d5964dc61487f38a5b6cfcdac59997519f1173f7980d9b8b445594bba"
+      "sourceRev": "f9cca4a",
+      "computedHash": "fdc6026f49401ac6c1ccc753280991839e0d622576eaff5f682308a9fd94defa"
     },
     "factory-triage": {
       "source": "factory-core",
