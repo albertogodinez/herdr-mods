@@ -71,7 +71,7 @@ the flow from the project's feature map if it has one.
    ```
    | Helper | Does |
    |---|---|
-   | `record_begin <path> [WxH]` / `record_end` | set the viewport (`WxH`, else `VIEWPORT_W`/`VIEWPORT_H`, else 1440×900), start/stop with the cursor overlay at 30 fps; writes `<take>.take.json` with the page URL and, with `RECORD_APP_DIR=<served worktree>`, its commit |
+   | `record_begin <path> [WxH]` / `record_end` | set the viewport (`WxH`, else `VIEWPORT_W`/`VIEWPORT_H`, else 1440×900), start/stop with the cursor overlay at 30 fps; writes `<take>.take.json` with the page URL and, with `RECORD_APP_DIR=<served worktree>`, its commit; with `RECORD_APP_DIR` set it exits 2 before capture unless the current page answers HTTP 200 |
    | `visible_button <name> [css-scope]` | a JS expression for the one visible button with that text or aria-label; throws on 0 or 2+ visible matches, so a hidden duplicate can't be picked |
    | `highlight <js-expr> <label> [color] [below\|above]` / `unhighlight` | outline the element and pin a label; exit 1 if nothing matched. Unhighlight right after the click: the label is fixed to the viewport |
    | `ref '<regex>'` | `@eN` ref of the first `snapshot -i` line that matches |
@@ -164,6 +164,7 @@ its server or inspection session is still needed. Never delete the entire state 
 ## Gotchas
 
 - Set the viewport through `record_begin <path> WxH`: a `ab set viewport` before it is overwritten.
+- **Under a teardown run, record into the run's `files` directory** (`lifecycle.mjs show --run "$FACTORY_RUN_ID"` prints its `dir`; `take-template.sh` sets `STATE` to it). A path outside it fails with `artifact outside run`, and the run's files are cleaned at teardown, so copy each finished file to a folder the user can open and report that path.
 - The browser daemon resolves a relative `record start` or `screenshot` path against its own cwd,
   not yours. A relative record path printed "Recording started", then "ffmpeg write failed: Broken
   pipe", and wrote nothing. `record_begin` makes its path absolute; pass absolute paths to any

@@ -1,6 +1,6 @@
 ---
 name: factory-dev-slot
-description: Give each worktree its own local dev server (a dev slot) so parallel agents can validate the same app at once, as a per-worktree container published on 127.0.0.1:<port> with no app changes. Use before starting a dev server or validating in a browser when another agent or worktree may be running one, when the app's fixed dev port is taken (EADDRINUSE), when you would stop and restart one server to compare branches, or when stopping a dev server you started. Triggers on "port in use", "another worktree has the dev server", "run agents in parallel", "start a dev slot", "stop the dev server".
+description: Give each worktree its own local dev server (a dev slot), a per-worktree container published on 127.0.0.1:<port> with no app changes, so parallel agents can validate the same app at once. Use before starting a dev server or validating in a browser when another agent may be running one, when the fixed dev port is taken (EADDRINUSE), when tests exit 137 (OOM) with a server up, or when stopping a dev server you started. Triggers on "port in use", "run agents in parallel", "start a dev slot", "stop the dev server".
 ---
 
 # Dev slots
@@ -123,9 +123,11 @@ Stop that server by its PID, proven yours: `lsof -tiTCP:<port> -sTCP:LISTEN`, th
 ## Rules
 
 - **One worktree per slot.** The container bind-mounts the worktree, and a dev server's start-up clean can wipe its build output, so two slots on one worktree can delete each other's assets. Run builds and tests in the worktree before `slot up`, or `slot down` / `slot up` after.
+- **One agent owns a worktree and its slot.** A second agent or fork on that worktree reads and edits, and leaves `slot up`, merging trunk, pushing and `slot down` to the owner: a teardown under a live browser session ends in `ERR_CONNECTION_REFUSED`. To work in parallel, cut a worktree of your own.
 - **Each build you compare is its own worktree.** Copying another branch's file into a worktree under a running server races hot reload. Serve the baseline from `git worktree add --detach <path> origin/<trunk>`, in its own slot or after `slot down`.
 - **`slot down --purge` before `git worktree remove`.** A running slot keeps writing into its bind mount, so removing the worktree under it fails with `Directory not empty`. If that happens, `rm -rf` the directory, `git worktree prune`, then `slot gc`.
 - **Ports bind `127.0.0.1` only, and no container gets the Docker socket.** Keep both when adding an app.
 - **Sign-in happens on the host, never in a slot.** A container serves the app and nothing else.
 - **Preflight before the first commit in a worktree.** `node .agents/skills/factory-dev-slot/scripts/preflight.mjs [--after-commit <sha-before>]` exits 1 when `node -v` misses `.nvmrc`, `node_modules` is a symlink, or HEAD did not move: a hook that died on the wrong Node looks like a finished commit. The session-start status hook (`factory status --hook`) runs the same Node-vs-`.nvmrc` comparison, so a machine default older than `.nvmrc` is named before any shell command runs, not only when a dev slot starts.
+- **Exit 137 while a slot is up is the container's memory, not the test.** Run the test runner (vitest, jest) on the host, outside the slot, and confirm with `docker inspect <container> --format '{{.State.OOMKilled}}'`.
 - **Secrets stay out of argv and logs.** Profiles pass secrets through the child env only.
