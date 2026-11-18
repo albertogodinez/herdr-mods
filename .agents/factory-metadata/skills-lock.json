@@ -246,8 +246,8 @@
       "sourceType": "local",
       "bundle": "core",
       "skillPath": "bundles/core/factory-reflect/SKILL.md",
-      "sourceRev": "160a135",
-      "computedHash": "f6be0f7ab02b3881a987eb4b2713512c952b82e86ef4b675fa7bab767753dff7"
+      "sourceRev": "a8c478e",
+      "computedHash": "fcdd6b91246abf0f5ea88ccb5699e14d9fe725ac8e7f2b0d364ccc41ed2b9c78"
     },
     "factory-repo-register": {
       "source": "factory-core",
@@ -318,8 +318,8 @@
       "sourceType": "local",
       "bundle": "core",
       "skillPath": "bundles/core/factory-triage/SKILL.md",
-      "sourceRev": "cd68c59",
-      "computedHash": "1dd07a7ccdea647c2dbd72eb8d81aef3524251239bbe16e4d960ac200c2c03e5"
+      "sourceRev": "a8c478e",
+      "computedHash": "a1e593d62e1f2779afa9358c7ca0b441387c7b56450ee9ef094baeb6862f3905"
     },
     "factory-conductor": {
       "source": "factory-core",
