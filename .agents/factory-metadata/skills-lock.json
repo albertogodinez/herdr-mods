@@ -270,8 +270,8 @@
       "sourceType": "local",
       "bundle": "core",
       "skillPath": "bundles/core/factory-review/SKILL.md",
-      "sourceRev": "41aa0cc",
-      "computedHash": "15abdea5458a7b6b93988794e9bb4b480234bcd43fcc76c0e658bce0e6557298"
+      "sourceRev": "a0f2742",
+      "computedHash": "99c1590cb6269ca947a492902f230771f58c9e1448cfd8b5d7a8c24b7723adaf"
     },
     "factory-safari-check": {
       "source": "factory-core",
