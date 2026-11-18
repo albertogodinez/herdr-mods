@@ -30,21 +30,21 @@ Phases of one ticket run **in order, in the ticket's one worktree**. Never run t
 `scripts/state.mjs` owns it. The file is `<stateRoot>/conductor/state.json`, where `stateRoot` is the factory-context resolver's for the ticket's worktree. Its shape is `schemas/state.schema.json`. Every write is checked against that schema, and a write that would break it is refused.
 
 ```bash
-S=node\ .agents/skills/factory-conductor/scripts/state.mjs
-$S init --worktree <path> [--ticket <key>] [--plan <path>] [--recipe <skill>] # one of ticket or plan; prints the state file
-$S launch --state <file> <phase> [--task "<what this run does>"] [--what "<a few words>"] [--run]
-$S status --state <file>                                                      # one line
-$S live --state <file>                                                        # this ticket's sessions still open
-$S kill --state <file> <phase> --why "<reason>"
-$S set --state <file> key=value ...                                           # a fix the conductor makes by hand
-$S digest --state <file>                                                      # every run's notes, for reflect
+S() { node .agents/skills/factory-conductor/scripts/state.mjs "$@"; }   # a function: zsh doesn't word-split a variable
+S init --worktree <path> [--ticket <key>] [--plan <path>] [--recipe <skill>] # one of ticket or plan; prints the state file
+S launch --state <file> <phase> [--task "<what this run does>"] [--what "<a few words>"] [--run]
+S status --state <file>                                                      # one line
+S live --state <file>                                                        # this ticket's sessions still open
+S kill --state <file> <phase> --why "<reason>"
+S set --state <file> key=value ...                                           # a fix the conductor makes by hand
+S digest --state <file>                                                      # every run's notes, for reflect
 ```
 
 A phase ends its own run with `state.mjs end --state <file> <phase> --notes <file>`. The notes follow `schemas/phase-notes.schema.json`. Their `handoff` object is the only way a phase changes the state.
 
 ## Run a ticket
 
-1. **Set up.** Create or find the ticket's worktree, then `init`. A plan-first run (a detailed plan, no ticket yet) passes `--plan` alone. Intake files the ticket after the user's scope yes, and until then tabs are named after the plan. Claim the branch in the stack ledger with the state's `slug` as owner (`factory-stacked-pr`'s `stack.mjs claim`). A refused claim means another session owns it: ask the user. Start a decision log with `show-me-your-work` and `set decisions=<its path>`. Every call the user makes goes there, one row each. A phase reads the log, never the conversation.
+1. **Set up.** Create or find the ticket's worktree, then `init`. A plan-first run (a detailed plan, no ticket yet) passes `--plan` alone. Intake files the ticket after the user's scope yes, and until then tabs are named after the plan. On a ticket whose base is an unmerged PR, `set base=<that PR's branch>` now: review, ci-monitor and work read `base` from the state, so it can't wait for deploy. Cut the branch with `--no-track` and `git push -u origin <branch>`; a branch cut from `origin/<base>` otherwise tracks the parent, and a bare `git push` lands there. Check `git rev-parse --abbrev-ref @{u}` names this branch before any push. Claim the branch in the stack ledger with the state's `slug` as owner (`factory-stacked-pr`'s `stack.mjs claim`). A refused claim means another session owns it: ask the user. Start a decision log with `show-me-your-work` and `set decisions=<its path>`. Every call the user makes goes there, one row each. A phase reads the log, never the conversation.
 2. **Launch the next phase.** The order is intake, work, review, then deploy, then ci-monitor, then close. `launch` starts the run and works out where it opens:
    - **A session launcher is configured** (`adapters.sessionLauncher`, see factory-context's `references/adapters.md`). The phase opens as its own session, in the worktree, tagged `conductor:<slug>:<phase>:<n>`. Pass `--what` with a few words on what this run does (`CI on #1029`, `fix page-view reset`, `review round 3`): that's the session's name in the tab and the sidebar, which is how the user tells a ticket's stages apart. Without `--what` the tab is `<ticket> · <phase>` and the sidebar keeps its default. With the hc launcher, that's a Herdr tab and its sidebar row. Pass `--run` to open it, or run the `command` it prints, then its `after` command. Never start a phase with your own `hc run` (or `--name`): the session then belongs to your tab, unnamed, and `live` can't see it.
    - **No launcher** (`via: subagent`). Dispatch the printed `prompt` to a general-purpose subagent, unchanged.
