@@ -1,6 +1,6 @@
 import { View, div, svg, image } from "gpui-kit";
 import { h_flex } from "gpui-base";
-import { spaces, panes, run, openOverlay, theme, window, shared, setShared, layout, settings, nextCommand } from "herdr";
+import { spaces, panes, terminals, run, openOverlay, theme, window, shared, setShared, layout, settings, nextCommand } from "herdr";
 
 function find(node, id) {
   if (node?.id === id) return node;
@@ -167,10 +167,22 @@ export default class Tabs extends View {
     };
     const button = (id, label, action) => div().id(id).size(26).flex_none().flex().items_center().justify_center().rounded(6).text_color(t.dim).hover(s => s.bg(t.hover).text_color(t.foreground))
       .on_mouse_down("left", stop).on_click(action).child(label);
+    // A tab nobody named takes the name a launcher gave its session (agent.role / agent.what labels).
+    const allPanes = panes();
+    const labelsOf = new Map(terminals().map(k => [k.address, k.labels]));
+    const sessionName = (tab) => {
+      const mine = allPanes.filter(p => p.tab === tab && p.terminal);
+      for (const p of [...mine.filter(p => p.program?.agent), ...mine]) {
+        const l = labelsOf.get(p.terminal), role = String(l?.["agent.role"] ?? "").trim();
+        if (role) { const what = String(l["agent.what"] ?? "").trim(); return what ? `${role} \u00b7 ${what}` : role; }
+      }
+      return null;
+    };
     const tabFace = (id, ghost) => {
       const c = shown.find(x => x.id === id);
-      const program = panes().find(p => p.tab === c.id && p.program?.agent)?.program ?? panes().find(p => p.tab === c.id)?.program;
-      const name = /^tb\d+$/.test(c.name) ? program?.name ?? "Terminal" : c.name;
+      const program = allPanes.find(p => p.tab === c.id && p.program?.agent)?.program ?? allPanes.find(p => p.tab === c.id)?.program;
+      const session = c.named ? null : sessionName(c.id);
+      const name = session ?? (/^tb\d+$/.test(c.name) ? program?.name ?? "Terminal" : c.name);
       return h_flex().h(29).px(10).gap(7).rounded(7).items_center().flex_none().text_size(12.8)
         .border(1).border_color(c.active ? t.border : t.chrome).bg(c.active ? t.raised : t.chrome).text_color(c.active ? t.foreground : t.muted)
         .when(!ghost, el => el.hover(s => s.bg(t.hover)))
