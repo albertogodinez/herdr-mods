@@ -55,9 +55,9 @@ export function sessionName(labels) {
   return String(labels?.["agent.what"] ?? "").trim() || null;
 }
 
-// A name too long for its row scrolls while the row is hovered: it swings to its end and back
-// (a native loop, no timer). Unhovered, or short enough, it is a plain truncated line.
-const SCROLL_MS_PER_PX = 28;
+// A name too long for its row scrolls once to its end while the row is hovered, and stays there
+// (a native transition, no timer); leaving the row puts it back. Unhovered, it is a truncated line.
+const SCROLL_MS_PER_PX = 22, SCROLL_DELAY = 350;
 const RANK = { blocked: 4, done: 3, working: 2, idle: 1 };
 // A sub-agent without a pane isn't in agents(): its raw word, error counting as
 // blocked. It's never done: it reports to its parent, and the parent's done is the news.
@@ -197,12 +197,23 @@ export default class Agents extends View {
       const v = Math.round(size.width / zoom);
       if (w[k] !== v) { w[k] = v; cx.notify(); }
     };
-    const over = (w.text ?? 0) - (w.box ?? 0);
+    // The text's width is measured afresh on every hover (hoverRow drops it), so the first frame
+    // draws it at 0 and the next one moves it: that change is what the transition animates.
+    const over = w.text == null ? 0 : Math.max(0, w.text - (w.box ?? 0));
     if (this.hovered !== key || !(w.box > 0)) return div().id(`name-${key}`).flex_1().min_w(0).truncate().text_color(color).on_size_change(measure("box")).child(text);
     return div().id(`name-${key}`).flex_1().min_w(0).h(18).relative().overflow_hidden().text_color(color).on_size_change(measure("box"))
-      .child(div().id(`name-${key}-text`).absolute().top(0).left(0).h(18).line_height("18px").whitespace_nowrap().on_size_change(measure("text"))
-        .when(over > 0, (el) => el.loop("left", { from: 0, to: -over, period: Math.max(1600, 2 * over * SCROLL_MS_PER_PX + 1200) }))
+      .child(div().id(`name-${key}-text`).absolute().top(0).left(-over).h(18).line_height("18px").whitespace_nowrap().on_size_change(measure("text"))
+        .transition("left", { duration: Math.max(300, over * SCROLL_MS_PER_PX), delay: SCROLL_DELAY, easing: "linear" })
         .child(text));
+  }
+
+  // Pointer entry and exit for a row that draws its name with marquee().
+  hoverRow(key, on, cx) {
+    if (on) {
+      this.hovered = key;
+      if (this.widths?.[key]) delete this.widths[key].text;
+    } else if (this.hovered === key) this.hovered = null;
+    cx.notify();
   }
 
   subRow(t, s, shown, compact) {
@@ -222,11 +233,7 @@ export default class Agents extends View {
       .text_size(12.5)
       .when(on, (el) => el.bg(t.raised))
       .hover((s) => s.bg(t.hover))
-      .on_hover((over, cx) => {
-        if (over) this.hovered = `sub:${k.address}`;
-        else if (this.hovered === `sub:${k.address}`) this.hovered = null;
-        cx.notify();
-      })
+      .on_hover((over, cx) => this.hoverRow(`sub:${k.address}`, over, cx))
       .on_click(() => (this.listed.has(k.address) ? run("pane.focus", { terminal: k.address }) : this.peek(k.address)))
       .children(s.lines.map(l => div().self_start().mt(-4).w(9).h(17).mr(4).flex_none()
         .when(Boolean(l), el => el.border_l(1.5).border_color(t.input))
@@ -384,11 +391,7 @@ export default class Agents extends View {
         .when(a.focused, (el) => el.bg(t.selected))
         .cursor_pointer()
         .hover((s) => s.bg(t.hover))
-        .on_hover((on, cx) => {
-          if (on) this.hovered = a.address;
-          else if (this.hovered === a.address) this.hovered = null;
-          cx.notify();
-        })
+        .on_hover((on, cx) => this.hoverRow(a.address, on, cx))
         .on_click(() => run("pane.focus", { pane: a.pane }))
         .when(Boolean(pic), el => el.child(div().id(`agent-fold-${a.address}`)
           .when(subs.length > 0, el => el.on_click((_e, cx) => {
