@@ -326,8 +326,8 @@
       "sourceType": "local",
       "bundle": "core",
       "skillPath": "bundles/core/factory-conductor/SKILL.md",
-      "sourceRev": "b4ad583",
-      "computedHash": "a4fbb016c795ce6bfe267003beeb3c5c58cc76ee426c68b46a8d3e651af3d4b3"
+      "sourceRev": "f4b51fb",
+      "computedHash": "0c82226d3f29aa6e2932ca6cee1495fdbb334b7f1ced6581b8392640fed110ba"
     }
   },
   "mode": "commit",
