@@ -2,7 +2,7 @@
 
 import { View, div, image, svg } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
-import { agents, terminals, panes, focused, spaces, run, theme, shared, setShared, setAgentOrder, openOverlay, closeOverlay, props, window, layout } from "herdr";
+import { agents, terminals, panes, focused, spaces, run, theme, shared, setShared, setAgentOrder, openOverlay, closeOverlay, props, window, layout, settings } from "herdr";
 
 function find(node, id) {
   if (node?.id === id) return node;
@@ -49,14 +49,15 @@ function title(tab, l) {
   const telling = live && live !== (l?.terminal ?? l?.address) && live !== prog && !path && !live.includes("@") && live.toLowerCase() !== l?.program?.key;
   return (tab.name === prog || !tab.named) && telling ? live : tab.name;
 }
-// What a launcher called the session, from its terminal's labels: "worker · fix page-view reset".
-// The role alone when there's no description; null when the launcher said nothing.
+// What the agent that started the session said it is doing, from its terminal's `agent.what` label
+// ("fix page-view reset"); null when it said nothing.
 export function sessionName(labels) {
-  const role = String(labels?.["agent.role"] ?? "").trim();
-  if (!role) return null;
-  const what = String(labels?.["agent.what"] ?? "").trim();
-  return what ? `${role} \u00b7 ${what}` : role;
+  return String(labels?.["agent.what"] ?? "").trim() || null;
 }
+
+// A name too long for its row scrolls while the row is hovered: it swings to its end and back
+// (a native loop, no timer). Unhovered, or short enough, it is a plain truncated line.
+const SCROLL_MS_PER_PX = 28;
 const RANK = { blocked: 4, done: 3, working: 2, idle: 1 };
 // A sub-agent without a pane isn't in agents(): its raw word, error counting as
 // blocked. It's never done: it reports to its parent, and the parent's done is the news.
@@ -187,6 +188,23 @@ export default class Agents extends View {
     });
   }
 
+  // `key` names the row in this.hovered; widths are logical px (on_size_change reports them zoomed).
+  marquee(key, text, color) {
+    this.widths ??= {};
+    const zoom = settings()?.zoom || 1;
+    const w = (this.widths[key] ??= {});
+    const measure = (k) => (size, cx) => {
+      const v = Math.round(size.width / zoom);
+      if (w[k] !== v) { w[k] = v; cx.notify(); }
+    };
+    const over = (w.text ?? 0) - (w.box ?? 0);
+    if (this.hovered !== key || !(w.box > 0)) return div().id(`name-${key}`).flex_1().min_w(0).truncate().text_color(color).on_size_change(measure("box")).child(text);
+    return div().id(`name-${key}`).flex_1().min_w(0).h(18).relative().overflow_hidden().text_color(color).on_size_change(measure("box"))
+      .child(div().id(`name-${key}-text`).absolute().top(0).left(0).h(18).line_height("18px").whitespace_nowrap().on_size_change(measure("text"))
+        .when(over > 0, (el) => el.loop("left", { from: 0, to: -over, period: Math.max(1600, 2 * over * SCROLL_MS_PER_PX + 1200) }))
+        .child(text));
+  }
+
   subRow(t, s, shown, compact) {
     const k = s.t;
     const st = kidStatus(k, this.listed);
@@ -204,12 +222,17 @@ export default class Agents extends View {
       .text_size(12.5)
       .when(on, (el) => el.bg(t.raised))
       .hover((s) => s.bg(t.hover))
+      .on_hover((over, cx) => {
+        if (over) this.hovered = `sub:${k.address}`;
+        else if (this.hovered === `sub:${k.address}`) this.hovered = null;
+        cx.notify();
+      })
       .on_click(() => (this.listed.has(k.address) ? run("pane.focus", { terminal: k.address }) : this.peek(k.address)))
       .children(s.lines.map(l => div().self_start().mt(-4).w(9).h(17).mr(4).flex_none()
         .when(Boolean(l), el => el.border_l(1.5).border_color(t.input))
         .when(l === "└" || l === "├", el => el.border_b(1.5).rounded_bl(6))))
       .when(Boolean(pic), el => el.child(div().mr(8).child(pic)))
-      .child(div().flex_1().truncate().text_color(on ? t.foreground : t.muted).child(sessionName(k.labels) || k.name || k.template || k.program?.name || k.address))
+      .child(this.marquee(`sub:${k.address}`, sessionName(k.labels) || k.name || k.template || k.program?.name || k.address, on ? t.foreground : t.muted))
       .child(this.status(t, { status: st }, compact));
   }
 
@@ -345,13 +368,11 @@ export default class Agents extends View {
           cx.notify();
         })
         .child(svg(`mods/workspace-chrome/${isPinned ? "pin-off" : "pin"}.svg`).size(13));
-      // Under a space header the space goes without saying; an automatic tab number says nothing.
-      // Without a space header above (priority, pinned) the row names its space.
+      // A row says what the agent is on: what it said it's doing (agent.what), else the tab someone
+      // named or the agent's own title. The space goes unsaid. Only an automatic tab number falls back
+      // to the space (no header above it: priority, pinned) or the program (under its space's header).
       const full = byPriority || isPinned;
-      // A session its launcher named shows that name alone (the space is in its tooltip): the column is narrow.
-      const session = sessions.get(a.address);
-      const name = session ?? (full ? a.space_name || label(a) : more ?? (/^\d+$/.test(label(a)) ? a.program?.name || label(a) : label(a)));
-      const after = session ? null : more;
+      const name = sessions.get(a.address) ?? more ?? (/^\d+$/.test(label(a)) ? (full ? a.space_name : a.program?.name) || label(a) : label(a));
       return h_flex()
         .id(`ag-${a.address}`)
         .px(8)
@@ -375,10 +396,7 @@ export default class Agents extends View {
             this.folded.has(a.address) ? this.folded.delete(a.address) : this.folded.add(a.address);
             cx.notify();
           })).child(pic)))
-        .child(h_flex().flex_1().min_w(0).gap(5).items_center()
-          .child(div().id(`ag-name-${a.address}`).min_w(0).max_w(full && after ? 120 : 200).truncate().text_color(idle ? t.muted : t.foreground)
-            .when(Boolean(session), el => el.tooltip(`${a.space_name ? `${a.space_name} \u00b7 ` : ""}${session}`)).child(name))
-          .when(full && Boolean(after), el => el.child(div().flex_1().min_w(0).truncate().text_color(t.dim).child(`\u00b7 ${after}`))))
+        .child(h_flex().flex_1().min_w(0).items_center().child(this.marquee(a.address, name, idle ? t.muted : t.foreground)))
         .when(Boolean(machine), el => el.child(div().text_size(10).text_color(t.dim).child(machine)))
         .when(subs.length > 0, el => el.child(fold(a, subs)))
         .when(this.hovered === a.address, el => el.child(pin))

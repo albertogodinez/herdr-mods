@@ -167,14 +167,14 @@ export default class Tabs extends View {
     };
     const button = (id, label, action) => div().id(id).size(26).flex_none().flex().items_center().justify_center().rounded(6).text_color(t.dim).hover(s => s.bg(t.hover).text_color(t.foreground))
       .on_mouse_down("left", stop).on_click(action).child(label);
-    // A tab nobody named takes the name a launcher gave its session (agent.role / agent.what labels).
+    // A tab nobody named takes what its agent said it is doing (the agent.what label).
     const allPanes = panes();
     const labelsOf = new Map(terminals().map(k => [k.address, k.labels]));
     const sessionName = (tab) => {
       const mine = allPanes.filter(p => p.tab === tab && p.terminal);
       for (const p of [...mine.filter(p => p.program?.agent), ...mine]) {
-        const l = labelsOf.get(p.terminal), role = String(l?.["agent.role"] ?? "").trim();
-        if (role) { const what = String(l["agent.what"] ?? "").trim(); return what ? `${role} \u00b7 ${what}` : role; }
+        const what = String(labelsOf.get(p.terminal)?.["agent.what"] ?? "").trim();
+        if (what) return what;
       }
       return null;
     };
