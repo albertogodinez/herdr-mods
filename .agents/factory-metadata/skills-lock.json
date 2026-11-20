@@ -246,8 +246,8 @@
       "sourceType": "local",
       "bundle": "core",
       "skillPath": "bundles/core/factory-reflect/SKILL.md",
-      "sourceRev": "99d753e",
-      "computedHash": "00247920da6af5e71ad052ea5f5509341ded177a1cfb0b2f440cd6e02b00fded"
+      "sourceRev": "f9c1607",
+      "computedHash": "a5e03d924aa5f4ae66398fe3316999e89514fc522d0d0e6985e870e6ed4d329b"
     },
     "factory-repo-register": {
       "source": "factory-core",
