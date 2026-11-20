@@ -1,3 +1,4 @@
+import { tabName } from "./tab-name.js";
 import { View, div, svg, image } from "gpui-kit";
 import { h_flex } from "gpui-base";
 import { spaces, panes, terminals, run, openOverlay, theme, window, shared, setShared, layout, settings, nextCommand } from "herdr";
@@ -170,19 +171,10 @@ export default class Tabs extends View {
     // A tab nobody named takes what its agent said it is doing (the agent.what label).
     const allPanes = panes();
     const labelsOf = new Map(terminals().map(k => [k.address, k.labels]));
-    const sessionName = (tab) => {
-      const mine = allPanes.filter(p => p.tab === tab && p.terminal);
-      for (const p of [...mine.filter(p => p.program?.agent), ...mine]) {
-        const what = String(labelsOf.get(p.terminal)?.["agent.what"] ?? "").trim();
-        if (what) return what;
-      }
-      return null;
-    };
     const tabFace = (id, ghost) => {
       const c = shown.find(x => x.id === id);
       const program = allPanes.find(p => p.tab === c.id && p.program?.agent)?.program ?? allPanes.find(p => p.tab === c.id)?.program;
-      const session = c.named ? null : sessionName(c.id);
-      const name = session ?? (/^tb\d+$/.test(c.name) ? program?.name ?? "Terminal" : c.name);
+      const name = tabName(c, allPanes, labelsOf);
       return h_flex().h(29).px(10).gap(7).rounded(7).items_center().flex_none().text_size(12.8)
         .border(1).border_color(c.active ? t.border : t.chrome).bg(c.active ? t.raised : t.chrome).text_color(c.active ? t.foreground : t.muted)
         .when(!ghost, el => el.hover(s => s.bg(t.hover)))
