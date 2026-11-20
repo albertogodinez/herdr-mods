@@ -318,8 +318,8 @@
       "sourceType": "local",
       "bundle": "core",
       "skillPath": "bundles/core/factory-triage/SKILL.md",
-      "sourceRev": "590eef7",
-      "computedHash": "cda65094de21a74c8ddd6b1af3e26a652aeb28e57efaeb6e011c64835133a0ae"
+      "sourceRev": "ae44b6d",
+      "computedHash": "cc3ef87cad0bab74566b84021656af1e5867534d639c1c21bdb6eebb732a0249"
     },
     "factory-conductor": {
       "source": "factory-core",
