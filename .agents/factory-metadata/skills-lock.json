@@ -246,8 +246,8 @@
       "sourceType": "local",
       "bundle": "core",
       "skillPath": "bundles/core/factory-reflect/SKILL.md",
-      "sourceRev": "f9c1607",
-      "computedHash": "a5e03d924aa5f4ae66398fe3316999e89514fc522d0d0e6985e870e6ed4d329b"
+      "sourceRev": "590eef7",
+      "computedHash": "bd2198323be8bbdcbe2290e3909d1deea8acef7afb6a8bdb5cc85e9a10ff1eb6"
     },
     "factory-repo-register": {
       "source": "factory-core",
@@ -318,16 +318,16 @@
       "sourceType": "local",
       "bundle": "core",
       "skillPath": "bundles/core/factory-triage/SKILL.md",
-      "sourceRev": "bab1351",
-      "computedHash": "56214aa9850c3ee63c081510131283862fc43d675aaddf88066c71a924068466"
+      "sourceRev": "590eef7",
+      "computedHash": "cda65094de21a74c8ddd6b1af3e26a652aeb28e57efaeb6e011c64835133a0ae"
     },
     "factory-conductor": {
       "source": "factory-core",
       "sourceType": "local",
       "bundle": "core",
       "skillPath": "bundles/core/factory-conductor/SKILL.md",
-      "sourceRev": "99d753e",
-      "computedHash": "036755a2b292ded83d355f719052447dcc9bdf1ec083a0e765f0d623c74e6bc4"
+      "sourceRev": "590eef7",
+      "computedHash": "85f9e3d3ce25ba416edd29f067bf7f4819dacf8d5013466f4acf2e9ac98837c9"
     }
   },
   "mode": "commit",
